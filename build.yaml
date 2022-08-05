@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=./build.yaml
+builders:
+  assets:
+    import: 'package:generators/assets_generator.dart'
+    builder_factories: ['assetsGeneratorBuilder']
+    build_extensions: { '$package$': ['lib/assets.g.dart'] }
+    build_to: source
+    auto_apply: root_package
+    defaults:
+      options:
+        import_path: assets
+        export_path: lib/assets.g.dart
+
+  i18n:
+    import: 'package:generators/i18n_generator.dart'
+    builder_factories: ['i18nGeneratorBuilder']
+    build_extensions: { '$package$': ['lib/i18n.g.dart'] }
+    build_to: source
+    auto_apply: root_package
+    defaults:
+      options:
+        import_path: i18n
+        export_path: lib/i18n.g.dart
+
+  models:
+    import: 'package:generators/models_generator.dart'
+    builder_factories: ['modelsGeneratorBuilder']
+    build_extensions: { '$package$': ['lib/models.g.dart'] }
+    build_to: source
+    auto_apply: root_package
+    defaults:
+      options:
+        import_path: models
+        export_path: lib/models.g.dart
+
+  icons:
+    import: 'package:generators/icons_generator.dart'
+    builder_factories: ['iconsGeneratorBuilder']
+    build_extensions: { '$package$': ['lib/icons.g.dart', 'lib/icons.ttf'] }
+    build_to: source
+    auto_apply: root_package
+    defaults:
+      options:
+        import_path: icons
+        export_path: lib/icons.g.dart
+        font_export_path: lib/icons.ttf
