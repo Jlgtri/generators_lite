@@ -209,6 +209,8 @@ abstract class I18NGenerator extends BaseGenerator {
   FutureOr<void> build([final BuildStep? buildStep]) async {
     await super.build(buildStep);
     i18nMap.clear();
+    final int localDirSegmentsCount =
+        split(Directory.current.path).length + split(importPath).length;
 
     final Map<String, int> withoutUnderscore = <String, int>{};
     for (final String inputPath in fileMap.keys) {
@@ -260,7 +262,7 @@ abstract class I18NGenerator extends BaseGenerator {
         for (final String inputPath in langValues.keys) {
           List<String> nestedKeys = split(inputPath);
           nestedKeys = nestedKeys.sublist(
-            Directory.current.uri.resolve(importPath).pathSegments.length,
+            localDirSegmentsCount,
             nestedKeys.length - 1,
           );
           final String path = joinAll(nestedKeys);
@@ -276,9 +278,7 @@ abstract class I18NGenerator extends BaseGenerator {
           if (inputs.length > 1) {
             for (final String directory in inputs) {
               List<String> nestedKeys = split(directory);
-              nestedKeys = nestedKeys.sublist(
-                Directory.current.uri.resolve(importPath).pathSegments.length,
-              );
+              nestedKeys = nestedKeys.sublist(localDirSegmentsCount);
               String inputKey =
                   (nestedKeys.removeLast().split('.')..removeLast()).join('.');
               inputKey = inputKey.contains('_')
@@ -294,7 +294,7 @@ abstract class I18NGenerator extends BaseGenerator {
           } else {
             List<String> nestedKeys = split(inputs.single);
             nestedKeys = nestedKeys.sublist(
-              Directory.current.uri.resolve(importPath).pathSegments.length,
+              localDirSegmentsCount,
               nestedKeys.length - 1,
             );
             (value as Map<String, Object?>)
@@ -304,7 +304,7 @@ abstract class I18NGenerator extends BaseGenerator {
       } else {
         List<String> nestedKeys = split(langValues.keys.single);
         nestedKeys = nestedKeys.sublist(
-          Directory.current.uri.resolve(importPath).pathSegments.length,
+          localDirSegmentsCount,
           nestedKeys.length - 1,
         );
         if (nestedKeys.isEmpty) {

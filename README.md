@@ -418,10 +418,22 @@ The properties of each field may optionally specify:
   `default` value specified and field is `nullable`.
 - **copy**: If the field should be included in `copyWith` or `copyWithNull`
   methods. Defaults to `true`.
-- **serialize**: If the field should be included in serialization, thus `toMap`
-  and `fromMap` methods. Defaults to `true`.
+- **serialize**: If the field should be included in `toMap` method. 
+  Defaults to `true`.
+- **deserialize**: If the field should be included in `fromMap` method if it is
+  not required. Defaults to `true`.
 - **compare**: If the field should participate in `compareTo` method
   implementaion. Defaults to `false`.
+- **equality**: If the field should be added to `== operator` and `hashCode`.
+  Can be a bool or a string of the following values: 
+    - _none_, if the field should not be added to equality,
+    - _ordered (**default**)_, if the equality should be added as `IterableEquality` for 
+      iterable fields and `== operator` for regular ones,
+    - _unordered_, if the equality should be added as 
+      `UnorderedIterableEquality` for iterable fields and `== operator` for 
+      regular ones.
+- **to_string**: If the field should be added to the `toString` method. 
+  Defaults to `true`.
 
 Each of the generated classes has the following parts:
 
@@ -469,7 +481,7 @@ The Data Class generator may also have the following keys:
   default values. Defaults to `true`.
 - **include_null_fields**: If the fields with null values should be added in
   `toMap`. Defaults to `true`.
-- **empty-required-iterables**: If the required iterable fields with null values
+- **empty_required_iterables**: If the required iterable fields with null values
   should be replaced with empty iterable in `fromMap`. Defaults to `true`.
 - **imports**: An iterable or a single string to add as an import to the
   generated file. By default, imports [`package:json_converters_lite`][].

@@ -54,12 +54,6 @@ class ModelsCommand extends GeneratorCommand<ModelsGenerator> {
             'Defaults to `true`.',
         defaultsTo: null,
       )
-      ..addFlag(
-        'empty-required-iterables',
-        help: 'If the required iterable fields with null values should be '
-            'replaced with empty iterable in `fromMap`. Defaults to `true`.',
-        defaultsTo: null,
-      )
       ..addMultiOption(
         'imports',
         abbr: 'f',
@@ -94,9 +88,6 @@ class ModelsCommand extends GeneratorCommand<ModelsGenerator> {
         argResults?['assign-field-types'] as Object?;
     final Object? includeNullFields = options?['include_null_fields'] ??
         argResults?['include-null-fields'] as Object?;
-    final Object? emptyRequiredIterables =
-        options?['empty_required_iterables'] ??
-            argResults?['empty-required-iterables'] as Object?;
     final Object? $imports =
         options?['imports'] ?? argResults?['imports'] as Object?;
     final Iterable<String>? imports = $imports is String
@@ -122,8 +113,6 @@ class ModelsCommand extends GeneratorCommand<ModelsGenerator> {
         convertFieldNames: convertFieldNames is bool ? convertFieldNames : null,
         assignFieldTypes: assignFieldTypes is bool ? assignFieldTypes : null,
         includeNullFields: includeNullFields is bool ? includeNullFields : null,
-        emptyRequiredIterables:
-            emptyRequiredIterables is bool ? emptyRequiredIterables : null,
         imports: imports == null ||
                 imports.length == 1 && imports.single == null.toString()
             ? null
@@ -148,7 +137,9 @@ abstract class ModelsGenerator extends BaseGenerator {
     this.convertClassNames,
     this.convertFieldNames,
     final bool? assignFieldTypes,
-  }) : assignFieldTypes = assignFieldTypes ?? true;
+    final bool? includeNullFields,
+  })  : assignFieldTypes = assignFieldTypes ?? true,
+        includeNullFields = includeNullFields ?? true;
 
   /// If the field names should be converted using [StringUtils.toCamelCase].
   final bool? convertClassNames;
@@ -159,6 +150,9 @@ abstract class ModelsGenerator extends BaseGenerator {
   /// If the unknown field types should be resolved from default values using
   /// [FieldType.fromObject].
   final bool assignFieldTypes;
+
+  /// If the fields with null values should be added in `toMap`.
+  final bool includeNullFields;
 
   /// The map with data class names as keys and instances as values.
   final List<ClassModel<Object?>> models = <ClassModel<Object?>>[];
@@ -194,6 +188,9 @@ abstract class ModelsGenerator extends BaseGenerator {
           final Object? required = fieldEntry.value['required'];
           final Object? copy = fieldEntry.value['copy'];
           final Object? serialize = fieldEntry.value['serialize'];
+          final Object? deserialize = fieldEntry.value['deserialize'];
+          final Object? equality = fieldEntry.value['equality'];
+          final Object? toString = fieldEntry.value['to_string'];
           fields.add(
             FieldModel<Object?>(
               fieldEntry.key.normalize(),
@@ -211,7 +208,30 @@ abstract class ModelsGenerator extends BaseGenerator {
               nullable: nullable is bool ? nullable : null,
               required: required is bool ? required : null,
               copy: copy is bool ? copy : null,
-              serialize: serialize is bool ? serialize : null,
+              serialize: serialize is bool
+                  ? serialize
+                      ? includeNullFields
+                          ? FieldSerialization.all
+                          : FieldSerialization.nonNull
+                      : FieldSerialization.none
+                  : serialize is String
+                      ? FieldSerialization.values.firstWhereOrNull(
+                          (final FieldSerialization $serialize) =>
+                              $serialize.name == serialize.trim(),
+                        )
+                      : !includeNullFields
+                          ? FieldSerialization.nonNull
+                          : null,
+              deserialize: deserialize is bool ? deserialize : null,
+              equality: equality is bool
+                  ? (equality ? FieldEquality.ordered : FieldEquality.none)
+                  : equality is String
+                      ? FieldEquality.values.firstWhereOrNull(
+                          (final FieldEquality $equality) =>
+                              $equality.name == equality.trim(),
+                        )
+                      : null,
+              toString: toString is bool ? toString : null,
               convert: convertFieldNames,
               convertClasses: convertClassNames,
             ),
@@ -255,22 +275,12 @@ class DartModelsGenerator extends ModelsGenerator {
     super.convertClassNames,
     super.convertFieldNames,
     super.assignFieldTypes,
-    final bool? includeNullFields,
-    final bool? emptyRequiredIterables,
+    super.includeNullFields,
     final Iterable<String>? imports,
-  })  : includeNullFields = includeNullFields ?? true,
-        emptyRequiredIterables = emptyRequiredIterables ?? true,
-        imports = imports ??
+  }) : imports = imports ??
             const <String>[
               'package:json_converters_lite/json_converters_lite.dart'
             ];
-
-  /// If the fields with null values should be added in `toMap`.
-  final bool includeNullFields;
-
-  /// If the required iterable fields with null values should be replaced with
-  /// empty [Iterable] in `fromMap`.
-  final bool emptyRequiredIterables;
 
   /// The iterable with imports to be used in [generateHeader].
   final Iterable<String> imports;
@@ -672,71 +682,61 @@ class DartModelsGenerator extends ModelsGenerator {
         );
     }
 
-    if (model.fields.any((final FieldModel<T> field) => field.serialize)) {
+    buffer
+
+      /// `toMap`
+      ..writeDoc('Convert this model to map with string keys.')
+      ..writeFunction(
+        'Map<String, Object?> toMap',
+        const Iterable<String>.empty(),
+        bodyConstructor: '<String, Object?>{',
+        bodyFields: <String>[
+          for (final FieldModel<T> field in model.fields)
+            if (field.serialize != FieldSerialization.none)
+              (final FieldModel<T> field) {
+                final String $field = "'${field.key}': "
+                    '${renderSerialization(model.name, field)}';
+                return field.serialize == FieldSerialization.nonNull &&
+                        field.nullable
+                    ? 'if (${field.name} != null) ${$field}'
+                    : $field;
+              }(field)
+        ],
+      )
+
+      /// `fromMap`
+      ..writeDoc('Convert the map with string keys to this model.')
+      ..writeFunction(
+        'factory ${model.name}.fromMap',
+        <String>['final Map<String, Object?> map'],
+        bodyConstructor: model.name,
+        bodyFields: <String>[
+          for (final FieldModel<T> field in model.fields)
+            if (field.deserialize || field.required)
+              '${field.name}: ${renderDeserialization(model.name, field)}'
+        ],
+      );
+
+    if (model.toJson) {
       buffer
 
-        /// `toMap`
-        ..writeDoc('Convert this model to map with string keys.')
+        /// `toJson`
+        ..writeDoc('Convert this model to a json string.')
         ..writeFunction(
-          'Map<String, Object?> toMap',
+          'String toJson',
           const Iterable<String>.empty(),
-          bodyConstructor: '<String, Object?>{',
-          bodyFields: <String>[
-            for (final FieldModel<T> field in model.fields)
-              if (field.serialize)
-                (final FieldModel<T> field) {
-                  final String $field = "'${field.key}': "
-                      '${renderSerialization(model.name, field)}';
-                  return !includeNullFields && field.nullable
-                      ? 'if (${field.name} != null) ${$field}'
-                      : $field;
-                }(field)
-          ],
+          bodyConstructor: 'json.encode',
+          bodyFields: <String>['toMap()'],
         )
 
-        /// `fromMap`
-        ..writeDoc('Convert the map with string keys to this model.')
+        /// `fromJson`
+        ..writeDoc('Convert the json string to this model.')
         ..writeFunction(
-          'factory ${model.name}.fromMap',
-          <String>['final Map<String, Object?> map'],
-          bodyConstructor: model.name,
-          bodyFields: <String>[
-            for (final FieldModel<T> field in model.fields)
-              if (field.serialize)
-                (final FieldModel<T> field) {
-                  final String deserialized = renderDeserialization(
-                    model.name,
-                    field,
-                    emptyRequiredIterables: emptyRequiredIterables,
-                  );
-                  return '${field.name}: $deserialized';
-                }(field)
-          ],
+          'factory ${model.name}.fromJson',
+          <String>['final String source'],
+          bodyConstructor: '${model.name}.fromMap',
+          bodyFields: <String>['json.decode(source)! as Map<String, Object?>'],
         );
-
-      if (model.toJson) {
-        buffer
-
-          /// `toJson`
-          ..writeDoc('Convert this model to a json string.')
-          ..writeFunction(
-            'String toJson',
-            const Iterable<String>.empty(),
-            bodyConstructor: 'json.encode',
-            bodyFields: <String>['toMap()'],
-          )
-
-          /// `fromJson`
-          ..writeDoc('Convert the json string to this model.')
-          ..writeFunction(
-            'factory ${model.name}.fromJson',
-            <String>['final String source'],
-            bodyConstructor: '${model.name}.fromMap',
-            bodyFields: <String>[
-              'json.decode(source)! as Map<String, Object?>'
-            ],
-          );
-      }
     }
 
     /// `compareTo`
@@ -779,52 +779,64 @@ class DartModelsGenerator extends ModelsGenerator {
         ..writeln('}');
     }
 
+    /// `equality`
+    if (model.fields.any(
+      (final FieldModel<T> field) => field.equality != FieldEquality.none,
+    )) {
+      buffer
+        ..writeln()
+
+        /// `==` operator
+        ..writeln('@override')
+        ..writeFunction(
+          'bool operator ==',
+          <String>['final Object? other'],
+          bodyFields: <String>[
+            'identical(this, other) ||other is ${model.name}',
+            for (final FieldModel<T> field in model.fields)
+              if (field.equality != FieldEquality.none)
+                if (field.type.name.startsWith(r'$$'))
+                  (final FieldModel<T> field) {
+                    final String equality =
+                        field.equality == FieldEquality.ordered
+                            ? 'IterableEquality'
+                            : 'UnorderedIterableEquality';
+                    return 'const $equality'
+                        '<${field.renderType(model.name, iterable: false)}>()'
+                        '.equals(other.${field.name}, ${field.name})';
+                  }(field)
+                else
+                  'other.${field.name} == ${field.name}'
+          ],
+          separator: ' && ',
+        )
+        ..writeln()
+
+        /// `hashCode`
+        ..writeln('@override')
+        ..writeFunction(
+          'int get hashCode',
+          <String>[],
+          bodyFields: <String>[
+            for (final FieldModel<T> field in model.fields)
+              if (field.equality != FieldEquality.none) '${field.name}.hashCode'
+          ],
+          separator: ' ^ ',
+        );
+    }
+
+    /// `toString`
     buffer
       ..writeln()
-
-      /// `==` operator
-      ..writeln('@override')
-      ..writeFunction(
-        'bool operator ==',
-        <String>['final Object? other'],
-        bodyFields: <String>[
-          'identical(this, other) ||other is ${model.name}',
-          for (final FieldModel<T> field in model.fields)
-            if (field.type.name.startsWith(r'$$'))
-              // ignore: missing_whitespace_between_adjacent_strings
-              'const UnorderedIterableEquality'
-                  '<${field.renderType(model.name, iterable: false)}>()'
-                  '.equals(other.${field.name}, ${field.name})'
-            else
-              'other.${field.name} == ${field.name}'
-        ],
-        separator: ' && ',
-      )
-      ..writeln()
-
-      /// `hashCode`
-      ..writeln('@override')
-      ..writeFunction(
-        'int get hashCode',
-        <String>[],
-        bodyFields: <String>[
-          for (final FieldModel<T> field in model.fields)
-            '${field.name}.hashCode'
-        ],
-        separator: ' ^ ',
-      )
-      ..writeln()
-
-      /// `toString`
       ..writeln('@override')
       ..writeFunction(
         'String toString',
         <String>[],
         bodyConstructor:
-            "'${model.name.startsWith(r'$') ? r'\' : ''}${model.name}",
+            "'${model.name.startsWith(r'$') ? r'\' : ''}${model.name}(",
         bodyFields: <String>[
           for (final FieldModel<T> field in model.fields)
-            '${field.name}: \$${field.name}'
+            if (field.$toString) '${field.name}: \$${field.name}'
         ],
       )
       ..writeln('}');
@@ -1417,6 +1429,44 @@ class ClassModel<T extends Object?> {
       fields.hashCode;
 }
 
+/// The type of the [FieldModel.serialize].
+enum FieldSerialization {
+  /// Field should not be serialized.
+  none,
+
+  /// Field should be serialized if non-null only.
+  nonNull,
+
+  /// Field should be serialized anyway.
+  all;
+
+  /// The `snake_case` name of this enum.
+  String get name {
+    switch (this) {
+      case FieldSerialization.none:
+        return 'none';
+      case FieldSerialization.nonNull:
+        return 'non_null';
+      case FieldSerialization.all:
+        return 'all';
+    }
+  }
+}
+
+/// The type of the [FieldModel.equality].
+enum FieldEquality {
+  /// Equality should not be added.
+  none,
+
+  /// Equality should be added as [IterableEquality] for iterable fields and
+  /// [==] for reqular ones.
+  ordered,
+
+  /// Equality should be added as [UnorderedIterableEquality] for iterable
+  /// fields and [==] for reqular ones.
+  unordered;
+}
+
 /// The model to contain the options of each field of the [ClassModel].
 @sealed
 @immutable
@@ -1432,8 +1482,11 @@ class FieldModel<T extends Object?> {
     final bool? required,
     final bool? nullable,
     final bool? copy,
-    final bool? serialize,
+    final FieldSerialization? serialize,
+    final bool? deserialize,
     final bool? compare,
+    final FieldEquality? equality,
+    final bool? toString,
     final bool? convert,
     final bool? convertClasses,
   })  : assert(key != '', 'Key can not be empty'),
@@ -1442,8 +1495,11 @@ class FieldModel<T extends Object?> {
         required = required ?? ($default == null && (!(nullable ?? false))),
         nullable = nullable ?? false,
         copy = copy ?? true,
-        serialize = serialize ?? true,
+        serialize = serialize ?? FieldSerialization.all,
+        deserialize = deserialize ?? true,
         compare = compare ?? false,
+        equality = equality ?? FieldEquality.ordered,
+        $toString = toString ?? true,
         convert = convert ?? true,
         convertClasses = convertClasses ?? true;
 
@@ -1474,11 +1530,20 @@ class FieldModel<T extends Object?> {
   /// If this field can be copied.
   final bool copy;
 
-  /// If this field can be serialized.
-  final bool serialize;
+  /// The type of the [FieldSerialization] that should apply to this field.
+  final FieldSerialization serialize;
+
+  /// If this field can be deserialized.
+  final bool deserialize;
 
   /// If this field should participate in object comparison.
   final bool compare;
+
+  /// The type of the [FieldEquality] that should apply to this field.
+  final FieldEquality equality;
+
+  /// If this field should be added in object [toString] method.
+  final bool $toString;
 
   /// If this field name should be converted using [StringUtils.toCamelCase].
   final bool convert;
@@ -1546,8 +1611,12 @@ class FieldModel<T extends Object?> {
           other.nullable == nullable &&
           other.copy == copy &&
           other.serialize == serialize &&
+          other.deserialize == deserialize &&
           other.compare == compare &&
-          other.convert == convert;
+          other.equality == equality &&
+          other.$toString == $toString &&
+          other.convert == convert &&
+          other.convertClasses == convertClasses;
 
   @override
   int get hashCode =>
@@ -1561,8 +1630,12 @@ class FieldModel<T extends Object?> {
       nullable.hashCode ^
       copy.hashCode ^
       serialize.hashCode ^
+      deserialize.hashCode ^
       compare.hashCode ^
-      convert.hashCode;
+      equality.hashCode ^
+      $toString.hashCode ^
+      convert.hashCode ^
+      convertClasses.hashCode;
 }
 
 String? _renderBasic(final Object? value) {
