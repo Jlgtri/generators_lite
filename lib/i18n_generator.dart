@@ -39,21 +39,52 @@ class I18NCommand extends GeneratorCommand<I18NGenerator> {
             'be likely to fail. Defaults to `true`.',
         defaultsTo: null,
       )
+      ..addFlag(
+        'only-language-code',
+        help: 'Ensure that locales should only use their language codes. '
+            'Defaults to `true`.',
+        defaultsTo: null,
+      )
       ..addOption(
         'base-class-name',
         abbr: 'b',
-        help: 'The base name of the base I18N class. Defaults to `L10N`.',
+        help: 'The base name of the base I18N class. Defaults to ``.',
       )
       ..addOption(
         'enum-class-name',
         abbr: 'u',
         help: 'The name of the I18N enum class. Defaults to `I18NLocale`.',
       )
+      ..addFlag(
+        'use-flutter',
+        help: 'If the generated results are intended to be used with Flutter. '
+            "Thus, whether Localizations class and it's Localizations Delegate "
+            'should be generated. Defaults to `true`.',
+        defaultsTo: null,
+      )
+      ..addOption(
+        'localizations-class-name',
+        help: 'The name of the I18N Localizations class implementation. '
+            'Only used if `use-flutter` is true. '
+            'Defaults to `I18NLocalizations`.',
+      )
+      ..addOption(
+        'delegate-class-name',
+        help: 'The name of the Localizations Delegate class implementation. '
+            'Only used if `use-flutter` is true. Defaults to `I18NDelegate`.',
+      )
+      ..addOption(
+        'delegate-fallback-locale',
+        help: 'The locale that will be used as a fallback in Localizations '
+            'Delegate. Should be the exact match of one of the generated '
+            'locales. Only used if `use_flutter` is true. '
+            'Defaults to the first locale generated.',
+      )
       ..addMultiOption(
         'imports',
         abbr: 'f',
         help: 'The imports to be used in generated file. '
-            'Defaults to import `package:l10n/l10n.dart`.',
+            'Defaults to import `package:meta/meta.dart`.',
         defaultsTo: <String>[null.toString()],
       );
   }
@@ -81,10 +112,22 @@ class I18NCommand extends GeneratorCommand<I18NGenerator> {
         options?['base_name'] ?? argResults?['base-name'] as Object?;
     final Object? convert =
         options?['convert'] ?? argResults?['convert'] as Object?;
+    final Object? onlyLanguageCode = options?['only_language_code'] ??
+        argResults?['only-language-code'] as Object?;
     final Object? baseClassName = options?['base_class_name'] ??
         argResults?['base-class-name'] as Object?;
     final Object? enumClassName = options?['enum_class_name'] ??
         argResults?['enum-class-name'] as Object?;
+    final Object? useFlutter =
+        options?['use_flutter'] ?? argResults?['use-flutter'] as Object?;
+    final Object? localizationsClassName =
+        options?['localizations_class_name'] ??
+            argResults?['localizations-class-name'] as Object?;
+    final Object? delegateClassName = options?['delegate_class_name'] ??
+        argResults?['delegate-class-name'] as Object?;
+    final Object? delegateFallbackLocale =
+        options?['delegate_fallback_locale'] ??
+            argResults?['delegate-fallback-locale'] as Object?;
     final Object? $imports =
         options?['imports'] ?? argResults?['imports'] as Object?;
     final Iterable<String>? imports = $imports is String
@@ -109,11 +152,25 @@ class I18NCommand extends GeneratorCommand<I18NGenerator> {
             ? baseName.normalize()
             : null,
         convert: convert is bool ? convert : null,
+        onlyLanguageCode: onlyLanguageCode is bool ? onlyLanguageCode : null,
         baseClassName: baseClassName is String && baseClassName.isNotEmpty
             ? baseClassName.normalize()
             : null,
         enumClassName: enumClassName is String && enumClassName.isNotEmpty
             ? enumClassName.normalize()
+            : null,
+        useFlutter: useFlutter is bool ? useFlutter : null,
+        localizationsClassName: localizationsClassName is String &&
+                localizationsClassName.isNotEmpty
+            ? localizationsClassName
+            : null,
+        delegateClassName:
+            delegateClassName is String && delegateClassName.isNotEmpty
+                ? delegateClassName
+                : null,
+        delegateFallbackLocale: delegateFallbackLocale is String &&
+                delegateFallbackLocale.isNotEmpty
+            ? delegateFallbackLocale
             : null,
         imports: imports == null ||
                 imports.length == 1 && imports.single == null.toString()
@@ -144,8 +201,10 @@ abstract class I18NGenerator extends BaseGenerator {
     super.yamlRecover,
     final String? baseName,
     final bool? convert,
+    final bool? onlyLanguageCode,
   })  : baseName = baseName ?? 'I18N',
-        convert = convert ?? true;
+        convert = convert ?? true,
+        onlyLanguageCode = onlyLanguageCode ?? false;
 
   /// The name of the
   /// {@macro i18n}
@@ -156,6 +215,11 @@ abstract class I18NGenerator extends BaseGenerator {
   /// {@macro i18n}
   /// names should be converted using [StringUtils.toCamelCase].
   final bool convert;
+
+  /// If only the language code of the generated
+  /// {@macro i18n}
+  /// locales should be used.
+  final bool onlyLanguageCode;
 
   /// The map with
   /// {@macro i18n}
@@ -210,16 +274,16 @@ abstract class I18NGenerator extends BaseGenerator {
     await super.build(buildStep);
     i18nMap.clear();
     final int localDirSegmentsCount =
-        split(Directory.current.path).length + split(importPath).length;
+        Directory.current.uri.resolve(importPath).pathSegments.length;
 
-    final Map<String, int> withoutUnderscore = <String, int>{};
-    for (final String inputPath in fileMap.keys) {
-      final String dirName = dirname(inputPath);
-      withoutUnderscore.putIfAbsent(dirName, () => 0);
-      if (!basenameWithoutExtension(inputPath).contains('_')) {
-        withoutUnderscore[dirName] = withoutUnderscore[dirName]! + 1;
-      }
-    }
+    // final Map<String, int> withoutUnderscore = <String, int>{};
+    // for (final String inputPath in fileMap.keys) {
+    //   final String dirName = dirname(inputPath);
+    //   withoutUnderscore.putIfAbsent(dirName, () => 0);
+    //   if (!basenameWithoutExtension(inputPath).contains('_')) {
+    //     withoutUnderscore[dirName] = withoutUnderscore[dirName]! + 1;
+    //   }
+    // }
 
     final Map<String, Iterable<String>> langKeys = <String, Iterable<String>>{};
     for (final String inputPath in fileMap.keys) {
@@ -227,22 +291,29 @@ abstract class I18NGenerator extends BaseGenerator {
       if (fileExtension.isEmpty && basename(inputPath).startsWith('.')) {
         fileExtension = basename(inputPath);
       }
+
       String langKey = basenameWithoutExtension(inputPath);
       if (langKey == fileExtension) {
         langKey = '';
       } else if (langKey.contains('_')) {
         langKey = langKey.split('_').last.trim();
-      } else if (withoutUnderscore[dirname(inputPath)]! <= 1) {
-        langKey = '';
       }
+      // else if (withoutUnderscore[dirname(inputPath)]! <= 1) {
+      //   langKey = '';
+      // }
+
       final List<String> langParts = langKey
           .replaceAll('-', '_')
           .split('_')
           .where((final String _) => _.isNotEmpty)
           .toList();
       if (langParts.isNotEmpty) {
-        final String lastKey = langParts.removeLast().toUpperCase();
-        langKey = <String>[...langParts, lastKey].join('_');
+        if (onlyLanguageCode) {
+          langKey = langParts.first;
+        } else {
+          final String lastKey = langParts.removeLast().toUpperCase();
+          langKey = <String>[...langParts, lastKey].join('_');
+        }
       } else {
         langKey = '';
       }
@@ -362,22 +433,56 @@ class DartI18NGenerator extends I18NGenerator {
     super.yamlRecover,
     super.baseName,
     super.convert,
-    final String? baseClassName,
+    super.onlyLanguageCode,
+    this.baseClassName,
     final String? enumClassName,
+    final bool? useFlutter,
+    final String? localizationsClassName,
+    final String? delegateClassName,
+    this.delegateFallbackLocale,
     final Iterable<String>? imports,
-  })  : baseClassName = baseClassName ?? 'L10N',
-        enumClassName = enumClassName ?? 'I18NLocale',
-        imports = imports ?? const <String>['package:l10n/l10n.dart'];
+  })  : enumClassName = enumClassName ?? 'I18NLocale',
+        useFlutter = useFlutter ?? true,
+        localizationsClassName = localizationsClassName ?? 'I18NLocalizations',
+        delegateClassName = delegateClassName ?? 'I18NDelegate',
+        imports = imports ?? const <String>[];
 
   /// The base name of the base
   /// {@macro i18n}
   /// class.
-  final String baseClassName;
+  final String? baseClassName;
 
   /// The name of the
   /// {@macro i18n}
   /// enum class.
   final String enumClassName;
+
+  /// If the generator should create Flutter's
+  /// {@macro i18n}
+  /// localization delegate.
+  final bool useFlutter;
+
+  /// The name of the
+  /// {@macro i18n}
+  /// Localizations class implementation.
+  ///
+  /// Only used if [useFlutter] is true.
+  final String localizationsClassName;
+
+  /// The name of the
+  /// {@macro i18n}
+  /// Localizations Delegate class implementation.
+  ///
+  /// Only used if [useFlutter] is true.
+  final String delegateClassName;
+
+  /// The locale that will be used as a fallback in the
+  /// {@macro i18n}
+  /// Localizations Delegate. Should be the exact match of one of the generated
+  /// locales.
+  ///
+  /// Only used if [useFlutter] is true.
+  final String? delegateFallbackLocale;
 
   /// The iterable with imports to be used in [generateHeader].
   final Iterable<String> imports;
@@ -410,11 +515,22 @@ class DartI18NGenerator extends I18NGenerator {
   String generate(final Map<String, Map<String, Object?>> i18nMap) {
     final StringBuffer buffer = StringBuffer();
     generateHeader(buffer, i18nMap);
-    generateEnum(buffer, i18nMap);
+    if (i18nMap.keys.any((final String key) => key.isNotEmpty)) {
+      if (useFlutter) {
+        generateLocalizations(buffer);
+        generateLocalizationsDelegate(buffer);
+      }
+      generateEnum(buffer, i18nMap);
+    }
     for (final String lang in i18nMap.keys.toList(growable: false)..sort()) {
       generateModel(buffer, i18nMap, lang);
     }
-    return formatter.format(buffer.toString(), uri: exportPath);
+    final String output = buffer.toString();
+    try {
+      return formatter.format(output, uri: exportPath);
+    } on Exception catch (_) {
+      return output;
+    }
   }
 
   /// Generate a header for the
@@ -434,9 +550,8 @@ class DartI18NGenerator extends I18NGenerator {
             .join(' '),
         prefix: '// ignore_for_file: ',
         separator: ', ',
-        indent: 0,
       )
-      ..writeln()
+      ..writeDoc('')
       ..writeDoc('This file is used for `I18N` package generation.')
       ..writeDoc('')
       ..writeDoc('Modify this file at your own risk!')
@@ -445,9 +560,145 @@ class DartI18NGenerator extends I18NGenerator {
       ..writeDoc('')
       ..writeImports(<String>[
         ...imports,
-        'package:intl/intl.dart',
+        if (useFlutter &&
+            i18nMap.keys.any((final String key) => key.isNotEmpty)) ...<String>[
+          'package:flutter/foundation.dart',
+          'package:flutter/material.dart'
+        ],
         'package:meta/meta.dart'
       ]);
+  }
+
+  /// Generate Flutter's
+  /// {@macro i18n}
+  /// Localizations class.
+  void generateLocalizations(final StringBuffer buffer) {
+    buffer
+      ..writeDoc('The [$baseName] Localizations for the current [locale].')
+      ..writeln('class $localizationsClassName {')
+      ..writeDoc(
+        'The [$baseName] Localizations for the current [locale].',
+        indent: 2,
+      )
+      ..writeln('const $localizationsClassName(this.locale);')
+      ..writeln()
+      ..writeDoc(
+        'The current [$baseName] locale of the [Localizations] widget.',
+        indent: 2,
+      )
+      ..writeln('final $enumClassName locale;')
+      ..writeln()
+      ..writeDoc(
+        'Return the [$baseName] for the current locale of the '
+        '[Localizations] widget.',
+        indent: 2,
+      )
+      ..writeln('static $baseName of(final BuildContext context) {')
+      ..writeln(
+        'final $localizationsClassName? i18n = '
+        'Localizations.of<$localizationsClassName>(context, '
+        '$localizationsClassName);',
+      )
+      ..writeln('assert(')
+      ..writeln('() {')
+      ..writeln('if (i18n == null) {')
+      ..writeln('throw FlutterError.fromParts(<DiagnosticsNode>[')
+      ..writeln('ErrorSummary(')
+      ..writeDoc(
+        'No $localizationsClassName found.',
+        prefix: "'",
+        suffix: "'",
+        indent: 14,
+      )
+      ..writeln(',),')
+      ..writeln('ErrorDescription(')
+      ..writeDoc(
+        '\${context.widget.runtimeType} widget require $localizationsClassName '
+        'to be provided by a Localizations widget ancestor.',
+        prefix: "'",
+        suffix: "'",
+        indent: 14,
+      )
+      ..writeln(',),')
+      ..writeln('ErrorDescription(')
+      ..writeDoc(
+        'The widgets library uses Localizations to generate messages, labels, '
+        'and abbreviations.',
+        prefix: "'",
+        suffix: "'",
+        indent: 14,
+      )
+      ..writeln(',),')
+      ..writeln('ErrorHint(')
+      ..writeDoc(
+        'To introduce the $localizationsClassName, add a Localization widget '
+        'with the $delegateClassName.',
+        prefix: "'",
+        suffix: "'",
+        indent: 14,
+      )
+      ..writeln(',),')
+      ..writeln('...context.describeMissingAncestor(')
+      ..writeln('expectedAncestorType: $localizationsClassName,')
+      ..writeln('),')
+      ..writeln(']);')
+      ..writeln('}')
+      ..writeln('return true;')
+      ..writeln('}(),')
+      ..writeln("'',")
+      ..writeln(');')
+      ..writeln('return i18n!.locale();')
+      ..writeln('}')
+      ..writeln()
+      ..writeDoc(
+        'A [$delegateClassName] that creates an instance of this class.',
+        indent: 2,
+      )
+      ..writeln(
+        'static const LocalizationsDelegate<$localizationsClassName> delegate '
+        '= $delegateClassName._();',
+      )
+      ..writeln('}');
+  }
+
+  /// Generate Flutter's
+  /// {@macro i18n}
+  /// Localizations Delegate class.
+  void generateLocalizationsDelegate(final StringBuffer buffer) {
+    buffer
+      ..writeDoc(
+        'The [$baseName] Localizations Delegate that creates an instance '
+        'of [$localizationsClassName].',
+      )
+      ..writeln(
+        'class $delegateClassName extends '
+        'LocalizationsDelegate<$localizationsClassName> {',
+      )
+      ..writeln('const $delegateClassName._();')
+      ..writeln()
+      ..writeln('@override')
+      ..writeln('bool isSupported(final Locale locale) => true;')
+      ..writeln()
+      ..writeln('@override')
+      ..writeln('bool shouldReload(final $delegateClassName old) => false;')
+      ..writeln()
+      ..writeln('@override')
+      ..writeln('Future<$localizationsClassName> load(final Locale locale) =>')
+      ..writeln('SynchronousFuture<$localizationsClassName>(')
+      ..writeln('$localizationsClassName(')
+      ..writeln('$enumClassName.values.firstWhere(')
+      ..writeln('(final $enumClassName \$locale) => \$locale.locale == locale,')
+      ..write('orElse: () => $enumClassName.')
+      ..writeln(
+        (delegateFallbackLocale?.isNotEmpty ?? false) &&
+                i18nMap.containsKey(delegateFallbackLocale)
+            ? enumName(delegateFallbackLocale!)
+            : 'values.first',
+      )
+      ..writeln(',),')
+      ..writeln('),')
+      ..writeln(');')
+      ..writeln('}');
   }
 
   /// Generate an
@@ -465,26 +716,11 @@ class DartI18NGenerator extends I18NGenerator {
     for (int index = 0; index < $keys.length; index++) {
       final String name = enumName($keys.elementAt(index));
       buffer
-        ..writeDoc('The implementation of the [$name] locale.')
+        ..writeDoc('The implementation of the [$name] locale.', indent: 2)
         ..write(name)
         ..writeln(index < $keys.length - 1 ? ',' : ';');
     }
     buffer
-      ..writeln()
-      ..writeDoc('Return the current active locale.')
-      ..writeln('static $enumClassName get current {')
-      ..writeln(
-        'final String currentLocale = '
-        'Intl.getCurrentLocale().toLowerCase();',
-      )
-      ..writeln('return values.firstWhere(')
-      ..writeln(
-        '(final $enumClassName locale) => '
-        'locale.name.toLowerCase() == currentLocale,',
-      )
-      ..writeln('orElse: () => values.first,')
-      ..writeln(');')
-      ..writeln('}')
       ..writeln()
       ..writeDoc('Return the localization for this locale.')
       ..writeln('$baseName call() {')
@@ -499,7 +735,7 @@ class DartI18NGenerator extends I18NGenerator {
     buffer
       ..writeln('}')
       ..writeln('}')
-      ..writeDoc('Return the name of this locale.')
+      ..writeDoc('Return the name of this locale.', indent: 2)
       ..writeln('String get name {')
       ..writeln('switch (this) {');
     for (final String key in i18nMap.keys) {
@@ -511,8 +747,34 @@ class DartI18NGenerator extends I18NGenerator {
     }
     buffer
       ..writeln('}')
-      ..writeln('}')
       ..writeln('}');
+    if (useFlutter) {
+      buffer
+        ..writeDoc('Return the Flutter [Locale] of this locale.', indent: 2)
+        ..writeln('Locale get locale {')
+        ..writeln('switch (this) {');
+      for (final String key in i18nMap.keys) {
+        if (key.isNotEmpty) {
+          final List<String> keyParts = key.split('_');
+          buffer
+            ..writeln('case $enumClassName.${enumName(key)}:')
+            ..write('return const ')
+            ..writeln(
+              keyParts.length >= 3
+                  ? "Locale.fromSubtags(languageCode: '${keyParts.first}', "
+                      "scriptCode: '${keyParts[1]}', "
+                      "countryCode: '${keyParts[2]}',);"
+                  : keyParts.length == 2
+                      ? "Locale('${keyParts.first}', '${keyParts.last}');"
+                      : "Locale('${keyParts.single}');",
+            );
+        }
+      }
+      buffer
+        ..writeln('}')
+        ..writeln('}');
+    }
+    buffer.writeln('}');
   }
 
   /// Generate a
@@ -565,15 +827,14 @@ class DartI18NGenerator extends I18NGenerator {
       buffer.write('<T extends ${$className}>');
     }
 
-    buffer.write(' extends ');
-    if (name.isEmpty) {
-      buffer.write('$baseClassName<$enumClassName>');
-    } else {
-      buffer.write(className('', keys));
+    if (name.isNotEmpty) {
+      buffer.write(' extends ${className('', keys)}');
       if (keys.isNotEmpty) {
         final Iterable<String> $keys = keys.toList()..removeLast();
         buffer.write('<${className(name, $keys)}>');
       }
+    } else if (baseClassName != null) {
+      buffer.write(' extends $baseClassName<$enumClassName>');
     }
     buffer
       ..writeln(' {')
@@ -583,16 +844,11 @@ class DartI18NGenerator extends I18NGenerator {
         'const ${className(name, keys)}._',
         <String>[
           if (name.isEmpty) ...<String>[
-            'super._',
             if (keys.isNotEmpty) r'this.$'
           ] else if (keys.isNotEmpty)
-            'final ${className(name, keys.toList()..removeLast())} _'
+            'super._'
         ],
         superConstructor: name.isNotEmpty ? 'super._' : '',
-        superFields: <String>[
-          if (name.isNotEmpty) '$enumClassName.${enumName(name)}',
-          if (name.isNotEmpty && keys.isNotEmpty) '_'
-        ],
       )
       ..writeln();
 
@@ -612,9 +868,17 @@ class DartI18NGenerator extends I18NGenerator {
           'identical(this, other) || other is ${className(name, keys)}$typeArg',
           ...<String>[
             for (final MapEntry<String, Object?> entry in map.entries)
-              if (entry.key.isNotEmpty && entry.value is Map<String, Object?>)
-                convert ? entry.key.toCamelCase() : entry.key.normalize()
-          ].map((final String key) => 'other.$key == $key')
+              if (entry.key.isNotEmpty)
+                entry.value is Map<String, Object?>
+                    ? entry.key
+                    : entry.key.removeFunctionType()
+          ]
+              .map((final String key) => key.split('(').first)
+              .map(
+                (final String key) =>
+                    convert ? key.toCamelCase() : key.normalize(),
+              )
+              .map((final String key) => 'other.$key == $key')
         ],
         separator: ' && ',
       )
@@ -626,11 +890,18 @@ class DartI18NGenerator extends I18NGenerator {
         'int get hashCode',
         <String>[],
         bodyFields: <String>[
-          'runtimeType',
           for (final MapEntry<String, Object?> entry in map.entries)
-            if (entry.key.isNotEmpty && entry.value is Map<String, Object?>)
-              convert ? entry.key.toCamelCase() : entry.key.normalize()
-        ].map((final String key) => '$key.hashCode'),
+            if (entry.key.isNotEmpty)
+              entry.value is Map<String, Object?>
+                  ? entry.key
+                  : entry.key.removeFunctionType()
+        ]
+            .map((final String key) => key.split('(').first)
+            .map(
+              (final String key) =>
+                  convert ? key.toCamelCase() : key.normalize(),
+            )
+            .map((final String key) => '$key.hashCode'),
         separator: ' ^ ',
       )
       ..writeln('}');
@@ -666,7 +937,7 @@ class DartI18NGenerator extends I18NGenerator {
     if (name.isEmpty && keys.isNotEmpty) {
       buffer
         ..writeln()
-        ..writeDoc('The parent of this group.')
+        ..writeDoc('The parent of this group.', indent: 2)
         ..writeln(r'final T $;');
     }
 
@@ -690,7 +961,10 @@ class DartI18NGenerator extends I18NGenerator {
             entry.value is Map<String, Object?> ? 'group' : 'key';
         buffer
           ..writeln()
-          ..writeDoc('The `$plainKey` $fieldType in the $groupName group.');
+          ..writeDoc(
+            'The `$plainKey` $fieldType in the $groupName group.',
+            indent: 2,
+          );
       } else if (name.isNotEmpty && entry.value == null) {
         continue;
       } else if (name.isNotEmpty) {
@@ -738,11 +1012,11 @@ class DartI18NGenerator extends I18NGenerator {
               }
               final String key = entry.key.removeFunctionType();
               final String? nestedKey =
-                  nestedMap.keys.cast<String?>().firstWhere(
-                        (final String? nestedKey) =>
-                            nestedKey!.removeFunctionType() == key,
-                        orElse: () => null,
-                      );
+                  (nestedMap.keys.cast<String?>()).firstWhere(
+                (final String? nestedKey) =>
+                    nestedKey!.removeFunctionType() == key,
+                orElse: () => null,
+              );
               return nestedKey?.getFunctionType() ??
                   getFunctionType(nestedMap[nestedKey]);
             })
@@ -778,35 +1052,50 @@ class DartI18NGenerator extends I18NGenerator {
         );
       }
 
-      Object? value = entry.value;
+      void writeBody(final String value, [final String end = '']) {
+        buffer.write(' => ');
+        if (end.isNotEmpty) {
+          buffer.writeDoc(
+            value,
+            indent: 6,
+            prefix: entry.value is! Map<String, Object?> &&
+                    entry.key.getFunctionType() == null &&
+                    !entry.key.contains('(') &&
+                    value.contains(r'$')
+                ? 'r$end'
+                : end,
+            suffix: end,
+          );
+        } else {
+          buffer.write(value);
+        }
+        buffer.writeln(';');
+      }
+
+      final Object? value = entry.value;
       if (value != null) {
         if (value is Map<String, Object?>) {
           if (name.isEmpty) {
             buffer.writeln(';');
             continue;
           }
-          value = '${$$className}._(this)';
+          writeBody('${$$className}._(this)');
         } else if (value is String) {
           if (value.contains('\n')) {
             buffer
               ..writeln('{')
               ..writeln(value)
               ..writeln('}');
-            continue;
-          }
-
-          if (value.contains('"') && value.contains("'")) {
-            value = "'${value.replaceAll("'", r"\'")}'";
+          } else if (value.contains('"') && value.contains("'")) {
+            writeBody(value.replaceAll("'", r"\'"), "'");
           } else if (value.contains("'")) {
-            value = '"$value"';
+            writeBody(value, '"');
           } else {
-            value = "'$value'";
+            writeBody(value, "'");
           }
+        } else {
+          writeBody(value.toString());
         }
-        buffer
-          ..write(' => ')
-          ..write(value)
-          ..writeln(';');
       } else {
         buffer.writeln(';');
       }

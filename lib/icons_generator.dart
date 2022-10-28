@@ -410,7 +410,12 @@ abstract class IconsGenerator extends BaseGenerator {
       baseSegments = const <String>[];
     }
     int globalIndex = 0;
-    for (final String inputPath in fileMap.keys.sorted()) {
+    for (final String inputPath in fileMap.keys.sorted(
+      (final String $1, final String $2) =>
+          basenameWithoutExtension($2).startsWith(basenameWithoutExtension($1))
+              ? 1
+              : $1.compareTo($2),
+    )) {
       Map<String, Object?> nestedIconsMap = iconsMap;
       final List<String> segments =
           split(inputPath).sublist(baseSegments.length);
@@ -493,7 +498,12 @@ class DartIconsGenerator extends IconsGenerator {
     final StringBuffer buffer = StringBuffer();
     generateHeader(buffer, iconsMap);
     generateModel(buffer, iconsMap, baseName);
-    return formatter.format(buffer.toString(), uri: exportPath);
+    final String output = buffer.toString();
+    try {
+      return formatter.format(output, uri: exportPath);
+    } on Exception catch (_) {
+      return output;
+    }
   }
 
   /// Generate a header for the
@@ -575,6 +585,7 @@ class DartIconsGenerator extends IconsGenerator {
           ..writeDoc(
             'The `${posix.basename(nestedMapPath)}` folder in '
             '`${posix.dirname(nestedMapPath)}`.',
+            indent: 2,
           )
           ..writeln('$cls get $key => $cls._(this);');
       } else if (value is int) {
@@ -585,6 +596,7 @@ class DartIconsGenerator extends IconsGenerator {
           ..writeDoc(
             'The [IconData] of the `${posix.basename(entry.key)}` in '
             '`${posix.dirname(entry.key)}`.',
+            indent: 2,
           )
           ..writeln('IconData get $iconName => '
               "const IconData(0x$codePoint, fontFamily: '$fontFamily');");
@@ -602,9 +614,11 @@ class DartIconsGenerator extends IconsGenerator {
           'identical(this, other) || other is ${className(name, keys)}',
           ...<String>[
             for (final MapEntry<String, Object?> entry in map.entries)
-              if (entry.key.isNotEmpty && entry.value is Map<String, Object?>)
-                convert ? entry.key.toCamelCase() : entry.key.normalize()
-          ].map((final String key) => 'other.$key == $key')
+              if (entry.key.isNotEmpty)
+                posix.basenameWithoutExtension(entry.key)
+          ]
+              .map((final _) => convert ? _.toCamelCase() : _.normalize())
+              .map((final String key) => 'other.$key == $key')
         ],
         separator: ' && ',
       )
@@ -616,11 +630,11 @@ class DartIconsGenerator extends IconsGenerator {
         'int get hashCode',
         <String>[],
         bodyFields: <String>[
-          'runtimeType',
           for (final MapEntry<String, Object?> entry in map.entries)
-            if (entry.key.isNotEmpty && entry.value is Map<String, Object?>)
-              convert ? entry.key.toCamelCase() : entry.key.normalize()
-        ].map((final String key) => '$key.hashCode'),
+            if (entry.key.isNotEmpty) posix.basenameWithoutExtension(entry.key)
+        ]
+            .map((final _) => convert ? _.toCamelCase() : _.normalize())
+            .map((final String key) => '$key.hashCode'),
         separator: ' ^ ',
       )
       ..writeln('}');

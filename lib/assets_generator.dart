@@ -221,7 +221,12 @@ class DartAssetsGenerator extends AssetsGenerator {
     final StringBuffer buffer = StringBuffer();
     generateHeader(buffer, assetsMap);
     generateModel(buffer, assetsMap, baseName);
-    return formatter.format(buffer.toString(), uri: exportPath);
+    final String output = buffer.toString();
+    try {
+      return formatter.format(output, uri: exportPath);
+    } on Exception catch (_) {
+      return output;
+    }
   }
 
   /// Generate a header for the
@@ -237,9 +242,8 @@ class DartAssetsGenerator extends AssetsGenerator {
             .join(' '),
         prefix: '// ignore_for_file: ',
         separator: ', ',
-        indent: 0,
       )
-      ..writeln()
+      ..writeDoc('')
       ..writeDoc(
         'This file is used for `${assetsMap['']! as String}` folder file '
         'structure generation.',
@@ -316,9 +320,10 @@ class DartAssetsGenerator extends AssetsGenerator {
           'identical(this, other) || other is ${className(name, keys)}',
           ...<String>[
             for (final MapEntry<String, Object?> entry in map.entries)
-              if (entry.key.isNotEmpty && entry.value is Map<String, Object?>)
-                convert ? entry.key.toCamelCase() : entry.key.normalize()
-          ].map((final String key) => 'other.$key == $key')
+              if (entry.key.isNotEmpty) basenameWithoutExtension(entry.key),
+          ]
+              .map((final _) => convert ? _.toCamelCase() : _.normalize())
+              .map((final String key) => 'other.$key == $key')
         ],
         separator: ' && ',
       )
@@ -330,11 +335,11 @@ class DartAssetsGenerator extends AssetsGenerator {
         'int get hashCode',
         <String>[],
         bodyFields: <String>[
-          'runtimeType',
           for (final MapEntry<String, Object?> entry in map.entries)
-            if (entry.key.isNotEmpty && entry.value is Map<String, Object?>)
-              convert ? entry.key.toCamelCase() : entry.key.normalize()
-        ].map((final String key) => '$key.hashCode'),
+            if (entry.key.isNotEmpty) basenameWithoutExtension(entry.key)
+        ]
+            .map((final _) => convert ? _.toCamelCase() : _.normalize())
+            .map((final String key) => '$key.hashCode'),
         separator: ' ^ ',
       )
       ..writeln('}');
@@ -419,7 +424,7 @@ class DartAssetsGenerator extends AssetsGenerator {
           ..writeFunction(
             'String get $key',
             <String>[],
-            bodyConstructor: "'",
+            bodyConstructor: value.contains(r'$') ? "r'" : "'",
             bodyFields: posix.split(value),
             separator: posix.separator,
           );

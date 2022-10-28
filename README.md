@@ -106,7 +106,7 @@ flutter pub run build_runner build --delete-conflicting-outputs
 
 To make things even easier, you can also setup [VS Code task][vs-code-task-link]
 for [`package:build_runner`][]. This task can also be automatically run if you
-allow the `Tasks: Manage Automatic Tasks in Folder` command.
+allow the `c` command.
 See this example on `tasks.json` for a convenient way to setup such task.
 
 ```json
@@ -203,15 +203,6 @@ final I18NLocale currentLocale = I18NLocale.current;
 final I18N currentLocaleInstance = currentLocale();
 ```
 
-To use this generator, you also need to put [`package:intl`][] and
-[`package:l10n`][] under [dependencies][] in your [`pubspec.yaml`][].
-
-```yaml
-dependencies:
-  intl:
-  l10n:
-```
-
 To start, we need to mention a few points on groups:
 
 1. Each group can be nested indefinitely using getters.
@@ -268,17 +259,32 @@ The I18N generator may also have the following keys:
 - **encoding**: The encoding used for reading the `.json` and `.yaml` files.
   Defaults to `utf-8`.
 - **base_name**: The name of the generated class. Defaults to `I18N`.
-- **base_class_name**: The name of the class, that will be used as an abstract
-  base for generated groups. You may also specify any necessary `imports`
-  needed to import that class. Defaults to `L10N` from [`package:l10n`][].
-- **enum_class_name**: The name of the generated `Enum`.
-  Defaults to `I18NLocale`.
-- **imports**: An iterable or a single string to add as import to the
-  generated file. Defaults to import [`package:l10n`][].
 - **convert**: If the group keys should be converted to
   [camel case][camel-case-link]. Disabling this option will prevent any changes
   to be made to the key names. Be certain to pass valid Dart names or the
   generation will be likely to fail. Defaults to `true`.
+- **only_language_code**: Ensure that locales should only use their language
+  codes. Defaults to `true`.
+- **base_class_name**: The name of the class, that will be used as an abstract
+  base for generated groups. You may also specify any necessary `imports`
+  needed to import that class. Defaults to null.
+- **enum_class_name**: The name of the generated `Enum`.
+  Defaults to `I18NLocale`.
+- **use_flutter**: If the generated results are intended to be used with
+  Flutter. Thus, whether Localizations class and it's Localizations Delegate
+  should be generated. Defaults to `true`.
+- **localizations_class_name**: The name of the I18N Localizations class
+  implementation. Only used if `use_flutter` is true.
+  Defaults to `I18NLocalizations`.
+- **delegate_class_name**: The name of the Localizations Delegate class
+  implementation. Only used if `use_flutter` is true.
+  Defaults to `I18NDelegate`.
+- **delegate_fallback_locale**: The locale that will be used as a fallback in
+  Localizations Delegate. Should be the exact match of one of the generated
+  locales. Only used if `use_flutter` is true.
+  Defaults to the first locale generated.
+- **imports**: An iterable or a single string to add as import to the
+  generated file. Defaults to import [`package:meta`][].
 
 ### Data Class Generator
 
@@ -418,21 +424,21 @@ The properties of each field may optionally specify:
   `default` value specified and field is `nullable`.
 - **copy**: If the field should be included in `copyWith` or `copyWithNull`
   methods. Defaults to `true`.
-- **serialize**: If the field should be included in `toMap` method. 
+- **serialize**: If the field should be included in `toMap` method.
   Defaults to `true`.
 - **deserialize**: If the field should be included in `fromMap` method if it is
   not required. Defaults to `true`.
 - **compare**: If the field should participate in `compareTo` method
   implementaion. Defaults to `false`.
 - **equality**: If the field should be added to `== operator` and `hashCode`.
-  Can be a bool or a string of the following values: 
-    - _none_, if the field should not be added to equality,
-    - _ordered (**default**)_, if the equality should be added as `IterableEquality` for 
-      iterable fields and `== operator` for regular ones,
-    - _unordered_, if the equality should be added as 
-      `UnorderedIterableEquality` for iterable fields and `== operator` for 
-      regular ones.
-- **to_string**: If the field should be added to the `toString` method. 
+  Can be a bool or a string of the following values:
+  - _none_, if the field should not be added to equality,
+  - _ordered (**default**)_, if the equality should be added as
+    `IterableEquality` for iterable fields and `== operator` for regular ones,
+  - _unordered_, if the equality should be added as
+    `UnorderedIterableEquality` for iterable fields and `== operator` for
+    regular ones.
+- **to_string**: If the field should be added to the `toString` method.
   Defaults to `true`.
 
 Each of the generated classes has the following parts:
@@ -594,7 +600,6 @@ Leave your suggestions at the official [issue tracker][issue-tracker-link].
 [`package:analyzer`]: https://pub.dev/packages/analyzer
 [`package:build_config`]: https://pub.dev/packages/build_config
 [`package:build_runner`]: https://pub.dev/packages/build_runner
-[`package:intl`]: https://pub.dev/packages/intl
 [`package:json_converters_lite`]: https://pub.dev/packages/json_converters_lite
 [`pubspec.yaml`]: https://dart.dev/tools/pub/pubspec
 [camel-case-link]: https://en.wikipedia.org/wiki/Camel_case
@@ -605,6 +610,5 @@ Leave your suggestions at the official [issue tracker][issue-tracker-link].
 [issue-tracker-link]: https://github.com/Jlgtri/generators/issues
 [node-js-link]: https://nodejs.org/
 [svgo-link]: https://github.com/svg/svgo
-[variance-link]: https://en.wikipedia.org/wiki/covariance_and_contravariance_(computer_science)
 [vs-code-task-link]: https://code.visualstudio.com/docs/editor/tasks
 [webfont-link]: https://en.wikipedia.org/wiki/TrueType

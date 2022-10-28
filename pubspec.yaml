@@ -3,20 +3,20 @@ description: Use the power of automatic code generation for Dart.
 repository: https://github.com/Jlgtri/generators
 version: 1.0.0
 environment:
-  sdk: '>=2.17.0 <3.0.0'
+  sdk: '>=2.18.0 <3.0.0'
 
 dependencies:
-  analyzer: ^3.2.0
-  args: ^2.3.0
-  build: ^2.3.0
+  analyzer: ^5.0.0
+  args: ^2.3.1
+  build: ^2.3.1
   collection: ^1.16.0
-  dart_style: ^2.2.3
+  dart_style: ^2.2.4
   glob: ^2.1.0
   intl: ^0.17.0
   logging: ^1.0.2
-  meta: ^1.7.0
-  path: ^1.8.0
-  pub_semver: ^2.1.0
+  meta: ^1.8.0
+  path: ^1.8.2
+  pub_semver: ^2.1.1
   yaml: ^3.1.1
 
 dev_dependencies:

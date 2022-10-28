@@ -285,6 +285,14 @@ class DartModelsGenerator extends ModelsGenerator {
   /// The iterable with imports to be used in [generateHeader].
   final Iterable<String> imports;
 
+  bool get _isDirectoryExport {
+    final FileSystemEntityType exportType =
+        FileSystemEntity.typeSync(exportPath);
+    return exportType == FileSystemEntityType.directory ||
+        exportType == FileSystemEntityType.notFound &&
+            extension(exportPath).isEmpty;
+  }
+
   @override
   @mustCallSuper
   FutureOr<void> build([final BuildStep? buildStep]) async {
@@ -296,11 +304,7 @@ class DartModelsGenerator extends ModelsGenerator {
         encoding: exportEncoding,
       );
     } else {
-      final FileSystemEntityType exportType =
-          FileSystemEntity.typeSync(exportPath);
-      if (exportType == FileSystemEntityType.directory ||
-          exportType == FileSystemEntityType.notFound &&
-              extension(exportPath).isEmpty) {
+      if (_isDirectoryExport) {
         final Map<Uri, Iterable<ClassModel<Object?>>> files =
             <Uri, Iterable<ClassModel<Object?>>>{};
         for (final ClassModel<Object?> model in models) {
@@ -352,7 +356,12 @@ class DartModelsGenerator extends ModelsGenerator {
     for (final ClassModel<T> model in models) {
       generateModel<T>(buffer, model);
     }
-    return formatter.format(buffer.toString(), uri: exportPath);
+    final String output = buffer.toString();
+    try {
+      return formatter.format(output, uri: exportPath);
+    } on Exception catch (_) {
+      return output;
+    }
   }
 
   /// Generate a header for the data classes file.
@@ -365,9 +374,8 @@ class DartModelsGenerator extends ModelsGenerator {
         (<String>['sort_constructors_first']..sort()).join(' '),
         prefix: '// ignore_for_file: ',
         separator: ', ',
-        indent: 0,
       )
-      ..writeln()
+      ..writeDoc('')
       ..writeDoc('This file is used for `Data Class` generation.')
       ..writeDoc('')
       ..writeDoc('Modify this file at your own risk!')
@@ -389,61 +397,63 @@ class DartModelsGenerator extends ModelsGenerator {
           'package:collection/collection.dart',
       ]);
 
-    final Map<String, int> relativeImports = <String, int>{};
-    for (final ClassModel<T> model in models) {
-      if (model.reference.isEmpty) {
-        continue;
-      }
-      final List<String> nameParts = model.reference
-          .split('.')
-          .reversed
-          .toList(growable: false)
-          .sublist(1);
-      for (final FieldModel<T> field in model.fields) {
-        if ((field.reference.isEmpty) ||
-            (field.type != FieldType.$object &&
-                field.type != FieldType.$$object)) {
+    if (_isDirectoryExport) {
+      /// Handle model relationships with relative imports.
+      final Map<String, int> relativeImports = <String, int>{};
+      for (final ClassModel<T> model in models) {
+        if (model.reference.isEmpty) {
           continue;
         }
-        final List<String> parts = field.reference
-            .split('.')
-            .reversed
-            .toList(growable: false)
-            .sublist(1);
-        if (const IterableEquality<String>().equals(nameParts, parts)) {
-          continue;
-        }
-
-        int index, dotCount = 0; // ignore: avoid_multiple_declarations_per_line
-        for (index = 1; index < parts.length; index++) {
-          if (index < nameParts.length &&
-              parts.elementAt(index) == nameParts.elementAt(index)) {
-            dotCount++;
-          } else {
-            dotCount += nameParts.length - index + 1;
-            break;
+        final List<String> nameParts =
+            model.reference.split('.').reversed.skip(1).toList(growable: false);
+        for (final FieldModel<T> field in model.fields) {
+          if ((field.reference.isEmpty) ||
+              (field.type != FieldType.$object &&
+                  field.type != FieldType.$$object)) {
+            continue;
           }
-        }
+          final List<String> parts = field.reference
+              .split('.')
+              .reversed
+              .skip(1)
+              .toList(growable: false);
+          if (parts.isEmpty ||
+              const IterableEquality<String>().equals(nameParts, parts)) {
+            continue;
+          }
 
-        final String path = <String>[
-          if (dotCount > 0) '.' * dotCount,
-          ...parts.sublist(index).reversed,
-          '${parts.elementAt(0)}.dart'
-        ].join('/');
-        relativeImports["import '$path';"] = dotCount;
+          int index,
+              dotCount = 0; // ignore: avoid_multiple_declarations_per_line
+          for (index = 1; index < parts.length; index++) {
+            if (index < nameParts.length &&
+                parts.elementAt(index) == nameParts.elementAt(index)) {
+              dotCount++;
+            } else {
+              dotCount += nameParts.length - index + 1;
+              break;
+            }
+          }
+
+          final String path = <String>[
+            if (dotCount > 0) '.' * dotCount,
+            ...parts.sublist(index).reversed,
+            '${parts.first}.dart'
+          ].join('/');
+          relativeImports["import '$path';"] = dotCount;
+        }
       }
+      relativeImports.keys.toList(growable: false)
+        ..sort(
+          (final String key1, final String key2) {
+            final num value1 = relativeImports[key1]!;
+            final num value2 = relativeImports[key2]!;
+            final int value = (value1 <= 1 ? double.infinity : value1)
+                .compareTo(value2 <= 1 ? double.infinity : value2);
+            return value != 0 ? value : key1.compareTo(key2);
+          },
+        )
+        ..forEach(buffer.writeln);
     }
-    relativeImports.keys.toList(growable: false)
-      ..sort(
-        (final String key1, final String key2) {
-          final num value1 = relativeImports[key1]!;
-          final num value2 = relativeImports[key2]!;
-          final int value = (value1 <= 1 ? double.infinity : value1)
-              .compareTo(value2 <= 1 ? double.infinity : value2);
-          return value != 0 ? value : key1.compareTo(key2);
-        },
-      )
-      ..forEach(buffer.writeln);
   }
 
   /// Generate enums for the data classes file.
@@ -477,13 +487,13 @@ class DartModelsGenerator extends ModelsGenerator {
         for (int index = 0; index < referenceValues.length; index++) {
           final String value = referenceValues.elementAt(index).trim();
           buffer
-            ..writeDoc('The `$value` property of this [$enumName].')
+            ..writeDoc('The `$value` property of this [$enumName].', indent: 2)
             ..write(field.convert ? value.toCamelCase() : value.normalize())
             ..writeln(index < referenceValues.length - 1 ? ',' : ';');
         }
         buffer
           ..writeln()
-          ..writeDoc('The name of the enum value.')
+          ..writeDoc('The name of the enum value.', indent: 2)
           ..writeln('String get name {')
           ..writeln('switch (this) {');
         for (final String value in reference.split(',')) {
@@ -591,7 +601,7 @@ class DartModelsGenerator extends ModelsGenerator {
     final String doc =
         model.doc == null ? 'The model of a ${model.name}.' : model.doc!;
     buffer
-      ..writeDoc(doc)
+      ..writeDoc(doc, indent: 2)
       ..writeln('@sealed')
       ..writeln('@immutable')
       ..writeln('class ${model.name}$comparable {')
@@ -630,6 +640,7 @@ class DartModelsGenerator extends ModelsGenerator {
           field.doc == null
               ? 'The `${field.key}` property of this [${model.name}].'
               : field.doc!,
+          indent: 2,
         )
         ..writeln('final ${field.renderType(model.name)} $key;');
     }
@@ -637,7 +648,7 @@ class DartModelsGenerator extends ModelsGenerator {
     /// `copyWith`
     if (model.fields.any((final FieldModel<T> field) => field.copy)) {
       buffer
-        ..writeDoc('Return the copy of this model.')
+        ..writeDoc('Return the copy of this model.', indent: 2)
         ..writeFunction(
           useBrackets: true,
           '${model.name} copyWith',
@@ -662,7 +673,10 @@ class DartModelsGenerator extends ModelsGenerator {
     if (model.fields
         .any((final FieldModel<T> field) => field.nullable && field.copy)) {
       buffer
-        ..writeDoc('Return the copy of this model with nullable fields.')
+        ..writeDoc(
+          'Return the copy of this model with nullable fields.',
+          indent: 2,
+        )
         ..writeFunction(
           useBrackets: true,
           '${model.name} copyWithNull',
@@ -685,7 +699,10 @@ class DartModelsGenerator extends ModelsGenerator {
     buffer
 
       /// `toMap`
-      ..writeDoc('Convert this model to map with string keys.')
+      ..writeDoc(
+        'Convert this model to map with string keys.',
+        indent: 2,
+      )
       ..writeFunction(
         'Map<String, Object?> toMap',
         const Iterable<String>.empty(),
@@ -705,7 +722,7 @@ class DartModelsGenerator extends ModelsGenerator {
       )
 
       /// `fromMap`
-      ..writeDoc('Convert the map with string keys to this model.')
+      ..writeDoc('Convert the map with string keys to this model.', indent: 2)
       ..writeFunction(
         'factory ${model.name}.fromMap',
         <String>['final Map<String, Object?> map'],
@@ -721,7 +738,7 @@ class DartModelsGenerator extends ModelsGenerator {
       buffer
 
         /// `toJson`
-        ..writeDoc('Convert this model to a json string.')
+        ..writeDoc('Convert this model to a json string.', indent: 2)
         ..writeFunction(
           'String toJson',
           const Iterable<String>.empty(),
@@ -730,7 +747,7 @@ class DartModelsGenerator extends ModelsGenerator {
         )
 
         /// `fromJson`
-        ..writeDoc('Convert the json string to this model.')
+        ..writeDoc('Convert the json string to this model.', indent: 2)
         ..writeFunction(
           'factory ${model.name}.fromJson',
           <String>['final String source'],
@@ -803,7 +820,7 @@ class DartModelsGenerator extends ModelsGenerator {
                             : 'UnorderedIterableEquality';
                     return 'const $equality'
                         '<${field.renderType(model.name, iterable: false)}>()'
-                        '.equals(other.${field.name}, ${field.name})';
+                        '.equals(other.${field.name}, ${field.name},)';
                   }(field)
                 else
                   'other.${field.name} == ${field.name}'
@@ -854,13 +871,13 @@ class DartModelsGenerator extends ModelsGenerator {
     }
     final String? Function(Object? value) convert;
     switch (field.type) {
-      case FieldType.$bool:
+      case FieldType.$boolean:
         return value is bool ? value.toString() : null;
-      case FieldType.$int:
+      case FieldType.$integer:
         return value is int ? value.toString() : null;
       case FieldType.$float:
         return value is double ? value.toString() : null;
-      case FieldType.$str:
+      case FieldType.$string:
         return _renderString(value);
       case FieldType.$datetime:
         return _renderDateTime(value);
@@ -879,11 +896,11 @@ class DartModelsGenerator extends ModelsGenerator {
         convert = _renderBasic;
         break;
 
-      case FieldType.$$bool:
+      case FieldType.$$boolean:
         convert =
             (final Object? value) => value is bool ? value.toString() : null;
         break;
-      case FieldType.$$int:
+      case FieldType.$$integer:
         convert =
             (final Object? value) => value is int ? value.toString() : null;
         break;
@@ -891,7 +908,7 @@ class DartModelsGenerator extends ModelsGenerator {
         convert =
             (final Object? value) => value is double ? value.toString() : null;
         break;
-      case FieldType.$$str:
+      case FieldType.$$string:
         convert = _renderString;
         break;
       case FieldType.$$datetime:
@@ -1030,10 +1047,10 @@ class DartModelsGenerator extends ModelsGenerator {
         return field.nullable
             ? 'optionalDurationConverter'
             : 'durationConverter';
-      case FieldType.$bool:
-      case FieldType.$int:
+      case FieldType.$boolean:
+      case FieldType.$integer:
       case FieldType.$float:
-      case FieldType.$str:
+      case FieldType.$string:
         return null;
 
       case FieldType.$$object:
@@ -1082,10 +1099,10 @@ class DartModelsGenerator extends ModelsGenerator {
                 'num>(durationConverter)'
             : 'const IterableConverter<Duration, num>(durationConverter)';
 
-      case FieldType.$$bool:
-      case FieldType.$$int:
+      case FieldType.$$boolean:
+      case FieldType.$$integer:
       case FieldType.$$float:
-      case FieldType.$$str:
+      case FieldType.$$string:
         return null;
     }
   }
@@ -1099,10 +1116,10 @@ class DartModelsGenerator extends ModelsGenerator {
     switch (field.type) {
       case FieldType.$object:
       case FieldType.$enum:
-      case FieldType.$bool:
-      case FieldType.$int:
+      case FieldType.$boolean:
+      case FieldType.$integer:
       case FieldType.$float:
-      case FieldType.$str:
+      case FieldType.$string:
       case FieldType.$datetime:
       case FieldType.$timedelta:
         return converter == null
@@ -1111,10 +1128,10 @@ class DartModelsGenerator extends ModelsGenerator {
 
       case FieldType.$$object:
       case FieldType.$$enum:
-      case FieldType.$$bool:
-      case FieldType.$$int:
+      case FieldType.$$boolean:
+      case FieldType.$$integer:
       case FieldType.$$float:
-      case FieldType.$$str:
+      case FieldType.$$string:
       case FieldType.$$datetime:
       case FieldType.$$timedelta:
         final String q = field.nullable ? '?' : '';
@@ -1155,14 +1172,21 @@ class DartModelsGenerator extends ModelsGenerator {
         continue single;
 
       single:
-      case FieldType.$bool:
-      case FieldType.$int:
+      case FieldType.$boolean:
+      case FieldType.$integer:
       case FieldType.$float:
-      case FieldType.$str:
+      case FieldType.$string:
         $type ??= field.renderType(className, iterable: false, nullable: false);
-        final String single = field.nullable
-            ? "$map['${field.key}'] ${$type != 'Object' ? 'as ${$type}?' : ''}"
-            : "$map['${field.key}']! as ${$type}";
+        String single = "$map['${field.key}']";
+        if (!field.nullable) {
+          single += '!';
+        }
+        if ($type != Object().runtimeType.toString()) {
+          single += ' as ${$type}';
+          if (field.nullable) {
+            single += '?';
+          }
+        }
         return converter == null ? single : '$converter.fromJson($single)';
 
       case FieldType.$$object:
@@ -1186,10 +1210,10 @@ class DartModelsGenerator extends ModelsGenerator {
         continue iterable;
 
       iterable:
-      case FieldType.$$bool:
-      case FieldType.$$int:
+      case FieldType.$$boolean:
+      case FieldType.$$integer:
       case FieldType.$$float:
-      case FieldType.$$str:
+      case FieldType.$$string:
         $type ??= field.renderType(className, iterable: false, nullable: false);
         final String iterable = field.nullable
             ? "($map['${field.key}'] as "
@@ -1216,16 +1240,16 @@ enum FieldType {
   $enum,
 
   /// The field type for a single [bool].
-  $bool,
+  $boolean,
 
   /// The field type for a single [int].
-  $int,
+  $integer,
 
   /// The field type for a single [double].
   $float,
 
   /// The field type for a single [String].
-  $str,
+  $string,
 
   /// The field type for a single [DateTime].
   $datetime,
@@ -1240,16 +1264,16 @@ enum FieldType {
   $$enum,
 
   /// The field type for a list of [bool].
-  $$bool,
+  $$boolean,
 
   /// The field type for a list of [int].
-  $$int,
+  $$integer,
 
   /// The field type for a list of [double].
   $$float,
 
   /// The field type for a list of [String].
-  $$str,
+  $$string,
 
   /// The field type for a list of [DateTime].
   $$datetime,
@@ -1291,13 +1315,13 @@ enum FieldType {
   /// Return a [FieldType] from an [object].
   factory FieldType.fromObject(final Object? object) {
     if (object is Iterable<bool>) {
-      return $$bool;
+      return $$boolean;
     } else if (object is Iterable<int>) {
-      return $$int;
+      return $$integer;
     } else if (object is Iterable<double>) {
       return $$float;
     } else if (object is Iterable<String>) {
-      return $$str;
+      return $$string;
     } else if (object is Iterable<DateTime>) {
       return $$datetime;
     } else if (object is Iterable<Duration>) {
@@ -1307,13 +1331,13 @@ enum FieldType {
     } else if (object is Iterable<Object?>) {
       return $$object;
     } else if (object is bool) {
-      return $bool;
+      return $boolean;
     } else if (object is int) {
-      return $int;
+      return $integer;
     } else if (object is double) {
       return $float;
     } else if (object is String) {
-      return $str;
+      return $string;
     } else if (object is DateTime) {
       return $datetime;
     } else if (object is Duration) {
@@ -1330,13 +1354,13 @@ enum FieldType {
         return Object;
       case $enum:
         return Enum;
-      case $bool:
+      case $boolean:
         return bool;
-      case $int:
+      case $integer:
         return int;
       case $float:
         return double;
-      case $str:
+      case $string:
         return String;
       case $datetime:
         return DateTime;
@@ -1346,13 +1370,13 @@ enum FieldType {
         return Iterable<Object>;
       case $$enum:
         return Iterable<Enum>;
-      case $$bool:
+      case $$boolean:
         return Iterable<bool>;
-      case $$int:
+      case $$integer:
         return Iterable<int>;
       case $$float:
         return Iterable<double>;
-      case $$str:
+      case $$string:
         return Iterable<String>;
       case $$datetime:
         return Iterable<DateTime>;
@@ -1643,8 +1667,10 @@ String? _renderBasic(final Object? value) {
     return value.toString();
   } else if (value is String) {
     return _renderString(value);
-  } else if (value is Map<String, Object?>) {
-    return json.encode(value);
+  } else if (value is Map<Object?, Object?>) {
+    return 'const <Object?, Object?>${json.encode(value)}';
+  } else if (value is Iterable<Object?>) {
+    return 'const <Object?>${json.encode(value)}';
   } else {
     return null;
   }

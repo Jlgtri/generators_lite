@@ -4,8 +4,6 @@ import 'sort_imports.dart';
 
 /// The extension with useful methods for [StringBuffer].
 extension StringBufferUtils on StringBuffer {
-  static final RegExp _whiteSpacePattern = RegExp(r'\s+', caseSensitive: false);
-
   /// Write package [imports] Dart-style.
   ///
   /// Sort imports and correct indentation.
@@ -84,9 +82,18 @@ extension StringBufferUtils on StringBuffer {
       write(' => ');
     }
     String quote = '';
-    for (final String quote_ in <String>["'''", '"""', "'", '"']) {
-      if ($body.startsWith(quote_)) {
-        quote = quote_;
+    for (final String $quote in <String>[
+      "r'''",
+      'r"""',
+      "r'",
+      'r"',
+      "'''",
+      '"""',
+      "'",
+      '"'
+    ]) {
+      if ($body.startsWith($quote)) {
+        quote = $quote;
         break;
       }
     }
@@ -114,7 +121,7 @@ extension StringBufferUtils on StringBuffer {
           }
           if (line.length + field.length + separator.length + quote.length >
               80 - 2 * 3) {
-            line.write(quote);
+            line.write(quote.replaceFirst('r', ''));
             write(line.toString());
             line
               ..clear()
@@ -134,7 +141,7 @@ extension StringBufferUtils on StringBuffer {
     } else {
       write($body);
     }
-    writeln('$end$quote;');
+    writeln('$end${quote.replaceFirst('r', '')};');
   }
 
   /// Writes the [value] as documentation using Dart style.
@@ -142,6 +149,7 @@ extension StringBufferUtils on StringBuffer {
   /// Automatically adds needed line breaks, but preserves existing ones.
   ///
   /// - **[prefix]** is set for each line in the [value], splitted by `\n`.
+  /// - **[suffix]** is set for each line in the [value], splitted by `\n`.
   /// - **[separator]** joins the words on a single line.
   /// - **[indent]** is the amount of spaces to be set before the line.
   /// - **[lineLength]** is used to calculate line breaks for each line.
@@ -153,31 +161,31 @@ extension StringBufferUtils on StringBuffer {
   void writeDoc(
     final String value, {
     final String prefix = '/// ',
+    final String suffix = '',
     final String separator = ' ',
-    final int indent = 2,
+    final int indent = 0,
     final int lineLength = 80,
   }) {
-    final int $lineLength = lineLength - prefix.length - indent;
-    for (String line
-        in const LineSplitter().convert(value.isEmpty ? '\n' : value)) {
+    String getLine(final List<String> words) =>
+        (' ' * indent + prefix + words.join(separator) + suffix).trimRight();
+
+    final int $lineLength = lineLength - indent - prefix.length - suffix.length;
+    for (String line in LineSplitter.split(value.isEmpty ? '\n' : value)) {
       final String $prefix = prefix.trim();
       if ($prefix.isNotEmpty) {
         while ((line = line.trimLeft()).startsWith($prefix)) {
           line = line.replaceFirst($prefix, '');
         }
       }
-
-      final List<String> currentWords = <String>[if (line.isEmpty) line];
-      void writeWords() {
-        if (currentWords.isNotEmpty) {
-          final String line =
-              ' ' * indent + prefix + currentWords.join(separator);
-          writeln(line.trimRight());
-          currentWords.clear();
+      final String $suffix = suffix.trim();
+      if ($suffix.isNotEmpty) {
+        while ((line = line.trimRight()).endsWith($suffix)) {
+          line = line.replaceFirst('${$suffix}\$', '');
         }
       }
 
-      for (final String word in line.split(_whiteSpacePattern)) {
+      final List<String> currentWords = <String>[if (line.isEmpty) line];
+      for (final String word in line.split(RegExp(r'\s+'))) {
         final int currentLength = currentWords.fold<int>(
           currentWords.isNotEmpty ? currentWords.length * separator.length : 0,
           (final int length, final String word) => length + word.length,
@@ -187,21 +195,36 @@ extension StringBufferUtils on StringBuffer {
         } else if (word.length >= $lineLength * 2 - currentLength) {
           int index = $lineLength - currentLength;
           currentWords.add(word.substring(0, index));
-          writeWords();
+          if (currentWords.isNotEmpty) {
+            writeln(getLine(currentWords));
+            currentWords.clear();
+          }
           while (index + $lineLength < word.length) {
             write(' ' * indent + prefix);
             writeln(word.substring(index, index += $lineLength));
+            if (!suffix.trim().startsWith(separator)) {
+              write(separator);
+            }
+            write(suffix);
           }
           final String wordLeft = word.substring(index);
           if (wordLeft.isNotEmpty) {
             currentWords.add(wordLeft);
           }
         } else {
-          writeWords();
+          if (currentWords.isNotEmpty) {
+            if (!suffix.trim().startsWith(separator)) {
+              currentWords.add('');
+            }
+            writeln(getLine(currentWords));
+            currentWords.clear();
+          }
           currentWords.add(word);
         }
       }
-      writeWords();
+      if (currentWords.isNotEmpty) {
+        writeln(getLine(currentWords));
+      }
     }
   }
 }

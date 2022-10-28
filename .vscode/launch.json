@@ -8,14 +8,22 @@
       "name": "test",
       "request": "launch",
       "type": "dart",
-      "args": ["assets", "-i", "source/assets", "-e", "lib/assets.dart"]
+      "args": [
+        "models",
+        "-i",
+        "source/models.json",
+        "-e",
+        "lib/models.dart"
+      ]
     },
     {
       "name": "Debug Generator",
       "request": "launch",
       "program": ".dart_tool/build/entrypoint/build.dart",
       "type": "dart",
-      "args": ["build"]
+      "args": [
+        "build"
+      ]
     }
   ]
 }
