@@ -440,6 +440,15 @@ The properties of each field may optionally specify:
     regular ones.
 - **to_string**: If the field should be added to the `toString` method.
   Defaults to `true`.
+- **check_type**: If value type should be checked on `deserialize` and replaced
+ for `chek_type_default` if needed. Defaults to `true`.
+- **check_type_default**: The default value of this field if `check_type`
+  resolves to false. This value should be a serialized value of this field's
+  type, which is then deserialized and rendered correctly during generation
+  proccess. If no value is specified, the `default` value is used instead.
+- **cast_iterable**: If the iterable value `type` should be processed on
+  `deserialize` using `Iterable.cast` instead of `Iterable.whereType`.
+  Defaults to `false`.
 
 Each of the generated classes has the following parts:
 

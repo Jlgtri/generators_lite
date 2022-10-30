@@ -191,6 +191,10 @@ abstract class ModelsGenerator extends BaseGenerator {
           final Object? deserialize = fieldEntry.value['deserialize'];
           final Object? equality = fieldEntry.value['equality'];
           final Object? toString = fieldEntry.value['to_string'];
+          final Object? checkType = fieldEntry.value['check_type'];
+          final Object? checkTypeDefault =
+              fieldEntry.value['check_type_default'];
+          final Object? castIterable = fieldEntry.value['cast_iterable'];
           fields.add(
             FieldModel<Object?>(
               fieldEntry.key.normalize(),
@@ -234,6 +238,12 @@ abstract class ModelsGenerator extends BaseGenerator {
               toString: toString is bool ? toString : null,
               convert: convertFieldNames,
               convertClasses: convertClassNames,
+              checkType: checkType is bool ? checkType : null,
+              checkTypeDefault: checkTypeDefault ??
+                  (!fieldEntry.value.containsKey('check_type_default')
+                      ? Object
+                      : null),
+              castIterable: castIterable is bool ? castIterable : null,
             ),
           );
         }
@@ -614,10 +624,10 @@ class DartModelsGenerator extends ModelsGenerator {
         <String>[
           for (final FieldModel<T> field in model.fields)
             (final FieldModel<T> field) {
-              final String? $default = _renderDefault(model.name, field);
-              if (field.required || !field.nullable && $default == null) {
+              final String $default = _renderDefault(model.name, field);
+              if (field.required || !field.nullable && $default.isEmpty) {
                 return 'required this.${field.name}';
-              } else if ($default != null) {
+              } else if ($default.isNotEmpty) {
                 return 'this.${field.name} = ${$default}';
               } else {
                 return 'this.${field.name}';
@@ -860,23 +870,23 @@ class DartModelsGenerator extends ModelsGenerator {
   }
 
   /// The default value of this [field] in a form of [String].
-  String? _renderDefault<T extends Object?>(
+  String _renderDefault<T extends Object?>(
     final String className,
     final FieldModel<T> field, [
     final Object? $value = Object,
   ]) {
     final Object? value = $value == Object ? field.$default : $value;
     if (value == null) {
-      return null;
+      return '';
     }
-    final String? Function(Object? value) convert;
+    final String Function(Object? value) convert;
     switch (field.type) {
       case FieldType.$boolean:
-        return value is bool ? value.toString() : null;
+        return value is bool ? value.toString() : '';
       case FieldType.$integer:
-        return value is int ? value.toString() : null;
+        return value is int ? value.toString() : '';
       case FieldType.$float:
-        return value is double ? value.toString() : null;
+        return value is double ? value.toString() : '';
       case FieldType.$string:
         return _renderString(value);
       case FieldType.$datetime:
@@ -898,15 +908,14 @@ class DartModelsGenerator extends ModelsGenerator {
 
       case FieldType.$$boolean:
         convert =
-            (final Object? value) => value is bool ? value.toString() : null;
+            (final Object? value) => value is bool ? value.toString() : '';
         break;
       case FieldType.$$integer:
-        convert =
-            (final Object? value) => value is int ? value.toString() : null;
+        convert = (final Object? value) => value is int ? value.toString() : '';
         break;
       case FieldType.$$float:
         convert =
-            (final Object? value) => value is double ? value.toString() : null;
+            (final Object? value) => value is double ? value.toString() : '';
         break;
       case FieldType.$$string:
         convert = _renderString;
@@ -939,24 +948,22 @@ class DartModelsGenerator extends ModelsGenerator {
         field.renderType(className, iterable: false, nullable: false);
     final Iterable<Object?> iterable =
         value is Iterable<Object?> ? value : const Iterable<Object?>.empty();
-    if (iterable.isEmpty) {
-      return 'const Iterable<${$type}>.empty()';
-    }
-    final Iterable<String> values = iterable.map(convert).whereNotNull();
-    if (values.isEmpty) {
-      return 'const Iterable<${$type}>.empty()';
-    }
-    return 'const <${$type}>[${values.join(',')}]';
+    final Iterable<String> values;
+    return iterable.isEmpty ||
+            (values = iterable.map(convert).where((final _) => _.isNotEmpty))
+                .isEmpty
+        ? 'const Iterable<${$type}>.empty()'
+        : 'const <${$type}>[${values.join(',')}]';
   }
 
-  String? _renderModel<T extends Object?>(
+  String _renderModel<T extends Object?>(
     final String className,
     final FieldModel<T> field,
     final Object? value, {
     final bool renderConst = true,
   }) {
     if (value is! Map<String, Object?>) {
-      return null;
+      return '';
     }
     final ClassModel<Object?>? fieldClass = models.firstWhereOrNull(
       (final ClassModel<Object?> model) =>
@@ -984,10 +991,10 @@ class DartModelsGenerator extends ModelsGenerator {
       }
       return '$returnValue)';
     }
-    return null;
+    return '';
   }
 
-  String? _renderEnum<T extends Object?>(
+  String _renderEnum<T extends Object?>(
     final String className,
     final FieldModel<T> field,
     final Object? value,
@@ -1007,11 +1014,11 @@ class DartModelsGenerator extends ModelsGenerator {
             '${field.convert ? value.toCamelCase() : value.normalize()}';
       }
     }
-    return null;
+    return '';
   }
 
   /// The converter of this field in a form of [String].
-  String? renderConverter<T extends Object?>(
+  String renderConverter<T extends Object?>(
     final String className,
     final FieldModel<T> field,
   ) {
@@ -1021,7 +1028,7 @@ class DartModelsGenerator extends ModelsGenerator {
         if (models.every(
           (final ClassModel<Object?> model) => model.key != reference,
         )) {
-          return null;
+          return '';
         }
         final String $type =
             field.renderType(className, iterable: false, nullable: false);
@@ -1051,14 +1058,14 @@ class DartModelsGenerator extends ModelsGenerator {
       case FieldType.$integer:
       case FieldType.$float:
       case FieldType.$string:
-        return null;
+        return '';
 
       case FieldType.$$object:
         final String reference = field.reference.split('[').first.normalize();
         if (models.every(
           (final ClassModel<Object?> model) => model.key != reference,
         )) {
-          return null;
+          return '';
         }
         String $type =
             field.renderType(className, iterable: false, nullable: false);
@@ -1103,7 +1110,7 @@ class DartModelsGenerator extends ModelsGenerator {
       case FieldType.$$integer:
       case FieldType.$$float:
       case FieldType.$$string:
-        return null;
+        return '';
     }
   }
 
@@ -1112,7 +1119,7 @@ class DartModelsGenerator extends ModelsGenerator {
     final String className,
     final FieldModel<T> field,
   ) {
-    final String? converter = renderConverter(className, field);
+    final String converter = renderConverter(className, field);
     switch (field.type) {
       case FieldType.$object:
       case FieldType.$enum:
@@ -1122,7 +1129,7 @@ class DartModelsGenerator extends ModelsGenerator {
       case FieldType.$string:
       case FieldType.$datetime:
       case FieldType.$timedelta:
-        return converter == null
+        return converter.isEmpty
             ? field.name
             : '$converter.toJson(${field.name})';
 
@@ -1135,7 +1142,7 @@ class DartModelsGenerator extends ModelsGenerator {
       case FieldType.$$datetime:
       case FieldType.$$timedelta:
         final String q = field.nullable ? '?' : '';
-        return converter == null
+        return converter.isEmpty
             ? '${field.name}$q.toList(growable: false)'
             : '$converter.toJson(${field.name})$q.toList(growable: false)';
     }
@@ -1149,7 +1156,7 @@ class DartModelsGenerator extends ModelsGenerator {
     final bool emptyRequiredIterables = true,
   }) {
     String? $type;
-    final String? converter = renderConverter(className, field);
+    final String converter = renderConverter(className, field);
     switch (field.type) {
       case FieldType.$object:
         final String reference = field.reference.split('[').first.normalize();
@@ -1177,17 +1184,22 @@ class DartModelsGenerator extends ModelsGenerator {
       case FieldType.$float:
       case FieldType.$string:
         $type ??= field.renderType(className, iterable: false, nullable: false);
-        String single = "$map['${field.key}']";
-        if (!field.nullable) {
-          single += '!';
-        }
+        String single = "$map['${field.key}']${field.nullable ? '' : '!'}";
         if ($type != Object().runtimeType.toString()) {
-          single += ' as ${$type}';
-          if (field.nullable) {
-            single += '?';
+          if (field.nullable && field.checkType) {
+            final Object? $default = field.checkTypeDefault ??
+                (field.required ? field.$default : null);
+            String $$default = _renderDefault(className, field, $default);
+            if ($$default.isEmpty) {
+              $$default = null.toString();
+            }
+            single = '$single is ${$type} ? '
+                '$single! as ${$type} : ${$$default}';
+          } else {
+            single += ' as ${$type}${field.nullable ? '?' : ''}';
           }
         }
-        return converter == null ? single : '$converter.fromJson($single)';
+        return converter.isEmpty ? single : '$converter.fromJson($single)';
 
       case FieldType.$$object:
         final String reference = field.reference.split('[').first.normalize();
@@ -1215,15 +1227,27 @@ class DartModelsGenerator extends ModelsGenerator {
       case FieldType.$$float:
       case FieldType.$$string:
         $type ??= field.renderType(className, iterable: false, nullable: false);
-        final String iterable = field.nullable
-            ? "($map['${field.key}'] as "
-                'Iterable<Object?>?)?.whereType<${$type}>()'
-            : emptyRequiredIterables
-                ? "($map['${field.key}'] as Iterable<Object?>? ?? "
-                    'const Iterable<Object?>.empty()).cast<${$type}>()'
-                : "($map['${field.key}']! as "
-                    'Iterable<Object?>).cast<${$type}>()';
-        return converter == null ? iterable : '$converter.fromJson($iterable,)';
+        String iterable = "$map['${field.key}']${field.nullable ? '' : '!'}";
+        if (field.nullable && field.checkType) {
+          final Object? $default = field.checkTypeDefault ??
+              (field.required ? field.$default : null);
+          String $$default = _renderDefault(className, field, $default);
+          if ($$default.isEmpty) {
+            $$default = null.toString();
+          }
+          iterable = '$iterable is Iterable<Object?> ? '
+              '$iterable! as Iterable<Object?> : ${$$default}';
+        } else {
+          iterable += ' as Iterable<Object?>${field.nullable ? '?' : ''}';
+        }
+        if ($type != Object().runtimeType.toString()) {
+          iterable = '($iterable)${field.nullable ? '?' : ''}.'
+              '${field.castIterable ? 'cast' : 'whereType'}<${$type}>()';
+        }
+        if (field.nullable && emptyRequiredIterables) {
+          iterable += ' ?? const Iterable<${$type}>.empty()';
+        }
+        return converter.isEmpty ? iterable : '$converter.fromJson($iterable,)';
     }
   }
 }
@@ -1513,10 +1537,13 @@ class FieldModel<T extends Object?> {
     final bool? toString,
     final bool? convert,
     final bool? convertClasses,
+    final bool? checkType,
+    this.checkTypeDefault,
+    final bool? castIterable,
   })  : assert(key != '', 'Key can not be empty'),
         dartName = dartName ?? '',
         reference = reference ?? '',
-        required = required ?? ($default == null && (!(nullable ?? false))),
+        required = required ?? ($default == null && !(nullable ?? false)),
         nullable = nullable ?? false,
         copy = copy ?? true,
         serialize = serialize ?? FieldSerialization.all,
@@ -1525,7 +1552,9 @@ class FieldModel<T extends Object?> {
         equality = equality ?? FieldEquality.ordered,
         $toString = toString ?? true,
         convert = convert ?? true,
-        convertClasses = convertClasses ?? true;
+        convertClasses = convertClasses ?? true,
+        checkType = checkType ?? true,
+        castIterable = castIterable ?? false;
 
   /// The key of this field in the class.
   final String key;
@@ -1575,6 +1604,17 @@ class FieldModel<T extends Object?> {
   /// If other data types relatable to this field should be converted using
   /// [StringUtils.toCamelCase].
   final bool convertClasses;
+
+  /// If value type should be checked on [deserialize] and replaced for
+  /// [checkTypeDefault] if needed.
+  final bool checkType;
+
+  /// The default value of this field to set if [checkType] resolves to false.
+  final Object? checkTypeDefault;
+
+  /// If iterable value type should be processed on [deserialize] using
+  /// [Iterable.cast] instead of [Iterable.whereType].
+  final bool castIterable;
 
   /// The valid dart name of this field.
   String get name => dartName.isEmpty
@@ -1640,7 +1680,10 @@ class FieldModel<T extends Object?> {
           other.equality == equality &&
           other.$toString == $toString &&
           other.convert == convert &&
-          other.convertClasses == convertClasses;
+          other.convertClasses == convertClasses &&
+          other.checkType == checkType &&
+          other.checkTypeDefault == checkTypeDefault &&
+          other.castIterable == castIterable;
 
   @override
   int get hashCode =>
@@ -1659,10 +1702,13 @@ class FieldModel<T extends Object?> {
       equality.hashCode ^
       $toString.hashCode ^
       convert.hashCode ^
-      convertClasses.hashCode;
+      convertClasses.hashCode ^
+      checkType.hashCode ^
+      checkTypeDefault.hashCode ^
+      castIterable.hashCode;
 }
 
-String? _renderBasic(final Object? value) {
+String _renderBasic(final Object? value) {
   if (value is bool || value is num) {
     return value.toString();
   } else if (value is String) {
@@ -1672,13 +1718,13 @@ String? _renderBasic(final Object? value) {
   } else if (value is Iterable<Object?>) {
     return 'const <Object?>${json.encode(value)}';
   } else {
-    return null;
+    return '';
   }
 }
 
-String? _renderString(final Object? value) {
+String _renderString(final Object? value) {
   if (value is! String) {
-    return null;
+    return '';
   } else if (value.contains('"') && value.contains("'")) {
     return "'${value.replaceAll("'", r"\'")}'";
   } else if (value.contains("'")) {
@@ -1688,7 +1734,7 @@ String? _renderString(final Object? value) {
   }
 }
 
-String? _renderDateTime(
+String _renderDateTime(
   final Object? value, {
   final bool renderConst = true,
 }) {
@@ -1713,7 +1759,7 @@ String? _renderDateTime(
       }
     }
   } else {
-    return null;
+    return '';
   }
 
   final Iterable<int> values = <int>[
@@ -1755,7 +1801,7 @@ String? _renderDateTime(
   return '${renderConst ? 'const ' : ''}DateTime(${values.join(', ')})';
 }
 
-String? _renderDuration(
+String _renderDuration(
   final Object? value, {
   final bool renderConst = true,
 }) {
@@ -1775,7 +1821,7 @@ String? _renderDuration(
       milliseconds = int.parse(parts.last.substring(0, 3));
       microseconds = int.parse(parts.last.substring(3));
     } else {
-      return null;
+      return '';
     }
     duration = Duration(
       seconds: seconds,
@@ -1783,7 +1829,7 @@ String? _renderDuration(
       microseconds: microseconds,
     );
   } else {
-    return null;
+    return '';
   }
 
   final String micros = duration.inMicroseconds.toString();
