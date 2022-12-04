@@ -320,19 +320,20 @@ abstract class IconsGenerator extends BaseGenerator {
   FutureOr<void> build([final BuildStep? buildStep]) async {
     FutureOr<T> runAction<T extends Object?>(
       final String label,
-      final FutureOr<T> action,
+      final FutureOr<T> Function() action,
     ) =>
         buildStep != null
-            ? buildStep.trackStage(label, () => action, isExternal: true)
-            : action;
+            ? buildStep.trackStage(label, action, isExternal: true)
+            : action();
 
-    ProcessResult result = await runAction(
-      'Check Node.JS version.',
-      Process.run('node', <String>['--version'], runInShell: true),
-    );
-    if (result.exitCode != 0) {
-      throw Exception('Please install Node.JS v10+');
-    }
+    ProcessResult result;
+    // ProcessResult result = await runAction(
+    //   'Check Node.JS version.',
+    //   () => Process.run('node', <String>['--version'], runInShell: true),
+    // );
+    // if (result.exitCode != 0) {
+    //   throw Exception('Please install Node.JS v10+');
+    // }
 
     await super.build(buildStep);
 
@@ -352,7 +353,7 @@ abstract class IconsGenerator extends BaseGenerator {
 
       result = await runAction(
         'Run ${yarn ? 'yarn' : 'npm'} install.',
-        Process.run(
+        () => Process.run(
           yarn ? 'yarn' : 'npm',
           <String>['install', '--no-fund'],
           workingDirectory: join(Directory.current.path, '.dart_tool'),
@@ -369,7 +370,7 @@ abstract class IconsGenerator extends BaseGenerator {
 
     result = await runAction(
       'Run fantasticon.',
-      Process.run(
+      () => Process.run(
         fantasticonExecutable,
         <String>[
           canonicalize(joinAll(split(importPath))),

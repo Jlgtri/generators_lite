@@ -197,7 +197,7 @@ abstract class ModelsGenerator extends BaseGenerator {
           final Object? castIterable = fieldEntry.value['cast_iterable'];
           fields.add(
             FieldModel<Object?>(
-              fieldEntry.key.normalize(),
+              fieldEntry.key,
               type is String
                   ? FieldType.fromString(type)
                   : assignFieldTypes && $default != null
@@ -643,8 +643,6 @@ class DartModelsGenerator extends ModelsGenerator {
 
     /// `fields`
     for (final FieldModel<T> field in model.fields) {
-      final String key =
-          field.convert ? field.key.toCamelCase() : field.key.normalize();
       buffer
         ..writeDoc(
           field.doc == null
@@ -652,7 +650,7 @@ class DartModelsGenerator extends ModelsGenerator {
               : field.doc!,
           indent: 2,
         )
-        ..writeln('final ${field.renderType(model.name)} $key;');
+        ..writeln('final ${field.renderType(model.name)} ${field.name};');
     }
 
     /// `copyWith`
