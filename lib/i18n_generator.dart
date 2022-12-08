@@ -274,7 +274,7 @@ abstract class I18NGenerator extends BaseGenerator {
     await super.build(buildStep);
     i18nMap.clear();
     final int localDirSegmentsCount =
-        Directory.current.uri.resolve(importPath).pathSegments.length;
+        split(join(Directory.current.path, importPath)).length;
 
     // final Map<String, int> withoutUnderscore = <String, int>{};
     // for (final String inputPath in fileMap.keys) {

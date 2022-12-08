@@ -734,7 +734,7 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeFunction(
         'factory ${model.name}.fromMap',
         <String>['final Map<String, Object?> map'],
-        bodyConstructor: model.name,
+        bodyConstructor: (model.fields.isEmpty ? 'const ' : '') + model.name,
         bodyFields: <String>[
           for (final FieldModel<T> field in model.fields)
             if (field.deserialize || field.required)
@@ -844,7 +844,28 @@ class DartModelsGenerator extends ModelsGenerator {
           <String>[],
           bodyFields: <String>[
             for (final FieldModel<T> field in model.fields)
-              if (field.equality != FieldEquality.none) '${field.name}.hashCode'
+              if (field.equality != FieldEquality.none)
+                (final FieldModel<T> field) {
+                  if (!field.type.isIterable) {
+                    return '${field.name}.hashCode';
+                  }
+                  final bool needsParanthesis = field.nullable &&
+                      model.fields
+                              .where(
+                                (final FieldModel<T> field) =>
+                                    field.equality != FieldEquality.none,
+                              )
+                              .length >
+                          1;
+                  String hash = field.equality == FieldEquality.unordered
+                      ? 'Object.hashAllUnordered'
+                      : 'Object.hashAll';
+                  hash = field.nullable
+                      ? '${field.name} == null ? ${field.name}.hashCode : '
+                          '$hash(${field.name}!)'
+                      : '$hash(${field.name})';
+                  return needsParanthesis ? '($hash)' : hash;
+                }(field)
           ],
           separator: ' ^ ',
         );
@@ -1368,6 +1389,9 @@ enum FieldType {
       return $object;
     }
   }
+
+  /// If this field type is iterable.
+  bool get isIterable => name.startsWith(r'$$');
 
   /// Return an object [Type] from a [FieldType].
   Type get object {

@@ -1,6 +1,7 @@
 /// Source: https://github.com/hexrcs/quartet_dart/tree/master/lib/src/case
 extension StringUtils on String {
-  static final RegExp _dartNamePattern = RegExp(r'(?!^\d)[$0-9a-zA-Z]+|[_]+$');
+  static final RegExp _dartNamePattern =
+      RegExp(r'(?!^\d)[$0-9a-zA-Z]+|^_+[$0-9a-zA-Z]+');
 
   /// Sets the prefix with `$` for this string if it starts with digit.
   ///
