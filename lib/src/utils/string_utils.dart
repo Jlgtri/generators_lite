@@ -9,8 +9,10 @@ extension StringUtils on String {
   /// ```dart
   /// "123443".normalize() // will return "$123443"
   /// ```
-  String normalize() =>
-      isNotEmpty && !startsWith(_dartNamePattern) ? '\$$this' : this;
+  String normalize() {
+    final String value = replaceAll('-', '_');
+    return isNotEmpty && !startsWith(_dartNamePattern) ? '\$$value' : value;
+  }
 
   /// Converts all characters of this string to camel case.
   ///

@@ -1103,7 +1103,10 @@ class DartI18NGenerator extends I18NGenerator {
   }
 }
 
-extension on String {
+/// The utilities to manipulate the function type in [String] of type
+/// `Type functionName()`.
+extension StringFunctionTypeUtils on String {
+  /// Return the function type from [String] of type `Type functionName()`.
   String? getFunctionType() {
     String functionDeclaration = this;
     if (functionDeclaration.contains('(')) {
@@ -1120,12 +1123,16 @@ extension on String {
     return null;
   }
 
+  /// Return the [String] of type `Type functionName()` without function type.
   String removeFunctionType() {
     final String? functionType = getFunctionType();
     return functionType != null ? substring(functionType.length).trim() : this;
   }
 }
 
+/// Check the map for validity.
+///
+/// Raises [FormatException] on mismatch.
 extension<T extends Object?> on Map<String, T> {
   /// Check if [other] doesn't have keys in this.
   ///
