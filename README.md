@@ -188,19 +188,26 @@ base, just like it's nested groups. Optionally, each group can also be modified
 in a default (unnamed) locale. If there is no default locale, the abstract
 locale is automatically resolved with all locales provided.
 
-Each locale can be accessed through initialized constant class instance, or the
-through call to a special generated `Enum` values. This `Enum` also has a method
-to return the `current` locale powered by [`package:intl`][] matched in the
-generated ones.
+Each locale can be accessed through initialized constant class instance, or
+through the call to a special generated `Enum` values.
 
-So, if you would like to return the current active locale, you would write
-something like this:
+If `use_flutter` is true, the `I18NLocalizations` class is also generated,
+providing a context-dependent interface to access current locale from Flutter
+widgets. This also requires providing the localization delegate like so:
 
 ```dart
-enum I18NLocale { ... }
+MaterialApp(
+  supportedLocales: I18NLocale.values.map((final _) => _.locale),
+  localizationsDelegates: const <LocalizationsDelegate<Object?>>[
+    I18NLocalizations.delegate
+  ],
+)
+```
 
-final I18NLocale currentLocale = I18NLocale.current;
-final I18N currentLocaleInstance = currentLocale();
+Then, to access the current localization, you would simply write:
+
+```dart
+final I18N $ = I18NLocalizations.of(context);
 ```
 
 To start, we need to mention a few points on groups:
@@ -288,8 +295,7 @@ The I18N generator may also have the following keys:
 
 ### Data Class Generator
 
-This generator creates all-in-one classes directly from field descriptions in
-the predefined config.
+This generator creates all-in-one classes directly from the predefined config.
 
 To use this generator, you also need to put [`package:json_converters_lite`][]
 under [dependencies][] in your [`pubspec.yaml`][].
@@ -303,75 +309,91 @@ The config example is the following:
 
 ```json
 {
-  // The name of the data class.
-  "address_model": {
-    // The properties of the class itself.
-    "": {
-      "name": "AddressModel",
-      "doc": "The model of an address."
-    },
+  // The name of the class.
+  "Address": {
+    // The dart name of the class.
+    "name": "AddressModel",
+    // The doc for the class.
+    "doc": "The model of an address.",
     // The properties of each field.
-    "id": {
-      "type": "int",
-      "default": null,
-      "doc": "The identificator of this address.",
-      "nullable": true,
-      "compare": true
+    "fields": {
+      "id": {
+        "type": "int",
+        "default": null,
+        "doc": "The identificator of this address.",
+        "nullable": true,
+        "compare": true
+      },
+      "postal_code": {
+        // The dart name will be this value instead of the field key.
+        "name": "postCode",
+        "type": "int",
+        "default": null,
+        "doc": null,
+        "nullable": false,
+        "compare": false
+      },
+      "companies": {
+        // Implementation of the one-to-many relationship.
+        "type": "Company[]",
+        "default": [],
+        "doc": null,
+        "nullable": false
+      }
     },
-    "postal_code": {
-      // The dart name will be this value instead of the field key.
-      "name": "postCode",
-      "type": "int",
-      "default": null,
-      "doc": null,
-      "nullable": false,
-      "compare": false
-    },
-    "companies": {
-      // Implementation of the one-to-many relationship.
-      "type": "company_model[]",
-      "default": [],
-      "doc": null,
-      "nullable": false
+    "instances": {
+      "address": {
+        "id": 1,
+        "postCode": 12345,
+        "companies": [
+          "company"
+        ]
+      }
     }
   },
-
-  "company_model": {
-    "": {
-      "name": "CompanyModel",
-      "doc": null
+  // The name of the other class.
+  "Company": {
+    // The dart name of the other class.
+    "name": "CompanyModel",
+    "doc": null,
+    "fields": {
+      "registry_number": {
+        "type": "int",
+        "default": null,
+        "doc": null,
+        "nullable": false,
+        "compare": true
+      },
+      "address_id": {
+        "type": "int",
+        "default": null,
+        "doc": null,
+        "nullable": false,
+        "compare": false
+      },
+      "address": {
+        // Implementation of the many-to-one relationship.
+        "type": "Address",
+        "default": null,
+        "doc": null,
+        "nullable": true
+      }
     },
-    "registry_number": {
-      "type": "int",
-      "default": null,
-      "doc": null,
-      "nullable": false,
-      "compare": true
-    },
-    "address_id": {
-      "type": "int",
-      "default": null,
-      "doc": null,
-      "nullable": false,
-      "compare": false
-    },
-    "address": {
-      // Implementation of the many-to-one relationship.
-      "type": "address_model",
-      "default": null,
-      "doc": null,
-      "nullable": true
+    "instances": {
+      "company": {
+        "registry_number": 123,
+        "address_id": "address.id",
+        "address": "address"
+      }
     }
   }
 }
 ```
 
-The structure of the config basically has three layers:
-
-- The outer layer contains the names of the classes to be generated.
-- The middle layer contains the the class field names and, optionally, an
-  unnamed field with the properties of the class itself.
-- The inner layer describes the properties of each field and the class itself.
+The config contains all of the classes to be generated. Each class contains
+`fields` key to set the fields of the class, and, optionally, an `instances`
+key to create instances of this class from `fields` and their values. Each
+class and each field can also contain any of the properties listed below.
 
 The properties of the class may optionally specify:
 
@@ -491,7 +513,7 @@ The Data Class generator may also have the following keys:
 - **convert_class_names**: If the class names should be converted to
   [camel case][camel-case-link]. Disabling this option will prevent any changes
   to be made to the class names. Be certain to pass valid Dart names or the
-  generation will be likely to fail. Defaults to `true`.
+  generation will be likely to fail. Defaults to `false`.
 - **assign_field_types**: If the unknown field types should be resolved from
   default values. Defaults to `true`.
 - **include_null_fields**: If the fields with null values should be added in
@@ -610,6 +632,7 @@ Leave your suggestions at the official [issue tracker][issue-tracker-link].
 [`package:build_config`]: https://pub.dev/packages/build_config
 [`package:build_runner`]: https://pub.dev/packages/build_runner
 [`package:json_converters_lite`]: https://pub.dev/packages/json_converters_lite
+[`package:meta`]: https://pub.dev/packages/meta
 [`pubspec.yaml`]: https://dart.dev/tools/pub/pubspec
 [camel-case-link]: https://en.wikipedia.org/wiki/Camel_case
 [dependencies]: https://dart.dev/tools/pub/dependencies

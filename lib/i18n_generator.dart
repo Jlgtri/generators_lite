@@ -197,8 +197,6 @@ abstract class I18NGenerator extends BaseGenerator {
     super.exportEncoding,
     super.encoding,
     super.formatter,
-    super.jsonReviver,
-    super.yamlRecover,
     final String? baseName,
     final bool? convert,
     final bool? onlyLanguageCode,
@@ -429,8 +427,6 @@ class DartI18NGenerator extends I18NGenerator {
     super.exportEncoding,
     super.encoding,
     super.formatter,
-    super.jsonReviver,
-    super.yamlRecover,
     super.baseName,
     super.convert,
     super.onlyLanguageCode,
@@ -491,7 +487,8 @@ class DartI18NGenerator extends I18NGenerator {
   @mustCallSuper
   FutureOr<void> build([final BuildStep? buildStep]) async {
     await super.build(buildStep);
-    if (buildStep != null) {
+    if (i18nMap.isEmpty) {
+    } else if (buildStep != null) {
       await buildStep.writeAsString(
         buildStep.allowedOutputs.single,
         buildStep.trackStage('Generate $exportPath.', () => generate(i18nMap)),

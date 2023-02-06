@@ -193,7 +193,8 @@ class DartAssetsGenerator extends AssetsGenerator {
   @mustCallSuper
   FutureOr<void> build([final BuildStep? buildStep]) async {
     await super.build(buildStep);
-    if (buildStep != null) {
+    if (assetsMap.isEmpty) {
+    } else if (buildStep != null) {
       await buildStep.writeAsString(
         buildStep.allowedOutputs.single,
         buildStep.trackStage(

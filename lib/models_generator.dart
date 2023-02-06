@@ -144,8 +144,6 @@ abstract class ModelsGenerator extends BaseGenerator {
     super.exportEncoding,
     super.encoding,
     super.formatter,
-    super.jsonReviver,
-    super.yamlRecover,
     this.convertClassNames,
     this.convertFieldNames,
     this.convertInstanceNames,
@@ -253,7 +251,6 @@ abstract class ModelsGenerator extends BaseGenerator {
                     : null,
             toString: toString is bool ? toString : null,
             convert: convertFieldNames,
-            convertClasses: convertClassNames,
             checkType: checkType is bool ? checkType : null,
             checkTypeDefault: checkTypeDefault ??
                 (!fieldEntry.value.containsKey('check_type_default')
@@ -356,8 +353,6 @@ class DartModelsGenerator extends ModelsGenerator {
     super.exportEncoding,
     super.encoding,
     super.formatter,
-    super.jsonReviver,
-    super.yamlRecover,
     super.convertClassNames,
     super.convertFieldNames,
     super.convertInstanceNames,
@@ -384,7 +379,8 @@ class DartModelsGenerator extends ModelsGenerator {
   @mustCallSuper
   FutureOr<void> build([final BuildStep? buildStep]) async {
     await super.build(buildStep);
-    if (buildStep != null) {
+    if (models.isEmpty) {
+    } else if (buildStep != null) {
       await buildStep.writeAsString(
         buildStep.allowedOutputs.single,
         buildStep.trackStage('Generate $exportPath.', () => generate(models)),
@@ -560,7 +556,7 @@ class DartModelsGenerator extends ModelsGenerator {
         }
 
         final String enumName =
-            field.renderType(model.name, iterable: false, nullable: false);
+            _renderType(model.name, field, iterable: false, nullable: false);
         if (processedEnumNames.contains(enumName)) {
           continue;
         }
@@ -692,21 +688,54 @@ class DartModelsGenerator extends ModelsGenerator {
       final Object? fields = instance.fields;
       bool isConst = true;
       if (fields is Map<String, Object?>) {
-        isConst = model.fields
+        if (isConst = model.fields
             .where(
               (final _) =>
                   _.type == FieldType.$datetime ||
                   _.type == FieldType.$$datetime,
             )
-            .every((final _) => fields[_.key] == null);
+            .every((final _) => fields[_.key] == null)) {
+          isConst = model.fields.where((final _) {
+            if (_.type == FieldType.$object || _.type == FieldType.$$object) {
+              String $type = _.reference.split('.').last;
+              if ($type.endsWith('[]')) {
+                $type = $type.substring(0, $type.length - 2);
+              }
+              return models.any((final _) => _.key == $type || _.name == $type);
+            }
+            return false;
+          }).every((final _) {
+            final Object? value = fields[_.key];
+            return _.type == FieldType.$object && value is! String ||
+                _.type == FieldType.$$object &&
+                    (value is! Iterable<Object?> ||
+                        value.every((final _) => _ is! String));
+          });
+        }
       } else if (fields is Iterable<Object?>) {
         for (int index = 0; index < model.fields.length; index++) {
+          final Object? value = fields.elementAt(index);
           final FieldModel field = model.fields.elementAt(index);
           if ((field.type == FieldType.$datetime ||
                   field.type == FieldType.$$datetime) &&
-              fields.elementAt(index) != null) {
+              value != null) {
             isConst = false;
             break;
+          } else if (field.type == FieldType.$object ||
+              field.type == FieldType.$$object) {
+            String $type = field.reference.split('.').last;
+            if ($type.endsWith('[]')) {
+              $type = $type.substring(0, $type.length - 2);
+            }
+            if (models.any((final _) => _.key == $type || _.name == $type)) {
+              if (field.type == FieldType.$object && value is String ||
+                  field.type == FieldType.$$object &&
+                      value is Iterable<Object?> &&
+                      value.any((final _) => _ is String)) {
+                isConst = false;
+                break;
+              }
+            }
           }
         }
       }
@@ -804,7 +833,7 @@ class DartModelsGenerator extends ModelsGenerator {
               : field.doc!,
           indent: 2,
         )
-        ..writeln('final ${field.renderType(model.name)} ${field.name};');
+        ..writeln('final ${_renderType(model.name, field)} ${field.name};');
     }
 
     /// `copyWith`
@@ -817,7 +846,7 @@ class DartModelsGenerator extends ModelsGenerator {
           <String>[
             for (final FieldModel field in model.fields)
               if (field.copy)
-                'final ${field.renderType(model.name, nullable: true)} '
+                'final ${_renderType(model.name, field, nullable: true)} '
                     '${field.name}'
           ],
           bodyConstructor: model.name,
@@ -981,7 +1010,7 @@ class DartModelsGenerator extends ModelsGenerator {
                             ? 'IterableEquality'
                             : 'UnorderedIterableEquality';
                     return 'const $equality'
-                        '<${field.renderType(model.name, iterable: false)}>()'
+                        '<${_renderType(model.name, field, iterable: false)}>()'
                         '.equals(other.${field.name}, ${field.name},)';
                   }(field)
                 else
@@ -1042,6 +1071,48 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeln('}');
   }
 
+  /// The type of this field in a form of [String].
+  String _renderType(
+    final String className,
+    final FieldModel field, {
+    final bool iterable = true,
+    final bool? nullable,
+  }) {
+    String $type;
+    if (field.reference.isNotEmpty &&
+        (field.type == FieldType.$object || field.type == FieldType.$$object)) {
+      $type = field.reference.split('.').last;
+      if ($type.endsWith('[]')) {
+        $type = $type.substring(0, $type.length - 2);
+      }
+      final ClassModel? model = models
+          .firstWhereOrNull((final _) => _.key == $type || _.name == $type);
+      $type = model?.name ?? 'Object';
+      $type = field.type == FieldType.$$object ? 'Iterable<${$type}>' : $type;
+    } else if (field.reference.isNotEmpty &&
+        (field.type == FieldType.$enum || field.type == FieldType.$$enum)) {
+      if (($type = className).endsWith('Model')) {
+        $type = $type.substring(0, $type.length - 5);
+      }
+
+      $type += field.name.capitalize();
+      $type = field.type == FieldType.$$enum ? 'Iterable<${$type}>' : $type;
+    } else {
+      $type = field.type.object.toString();
+    }
+
+    if (!(nullable ?? field.nullable) && $type.endsWith('?')) {
+      $type = $type.substring(0, $type.length - 1);
+    }
+    if (!iterable && $type.startsWith('Iterable<') && $type.endsWith('>')) {
+      $type = $type.substring(9, $type.length - 1);
+    }
+    if ((nullable ?? field.nullable) && !$type.endsWith('?')) {
+      $type = '${$type}?';
+    }
+    return $type;
+  }
+
   /// The default value of this [field] in a form of [String].
   String _renderDefault<T extends Object?>(
     final String className,
@@ -1052,14 +1123,19 @@ class DartModelsGenerator extends ModelsGenerator {
     if (value == null) {
       return '';
     }
+    bool isConst = true;
     final String Function(Object? value) convert;
     switch (field.type) {
       case FieldType.$boolean:
-        return value is bool ? value.toString() : '';
+        return value is bool
+            ? value.toString()
+            : (value is String ? value : '');
       case FieldType.$integer:
-        return value is int ? value.toString() : '';
+        return value is int ? value.toString() : (value is String ? value : '');
       case FieldType.$float:
-        return value is double ? value.toString() : '';
+        return value is double
+            ? value.toString()
+            : (value is String ? value : '');
       case FieldType.$string:
         return _renderString(value);
       case FieldType.$datetime:
@@ -1071,7 +1147,9 @@ class DartModelsGenerator extends ModelsGenerator {
       case FieldType.$object:
         final String modelKey = field.reference.split('[').first.normalize();
         if (models.any((final ClassModel model) => model.key == modelKey)) {
-          return _renderModel(className, field, value);
+          return value is! Map<String, Object?>
+              ? (value is String ? value : '')
+              : _renderModel(className, field, value);
         } else if (value is! Iterable<Object?>) {
           return _renderBasic(value);
         }
@@ -1106,8 +1184,16 @@ class DartModelsGenerator extends ModelsGenerator {
       case FieldType.$$object:
         final String modelKey = field.reference.split('[').first.normalize();
         if (models.any((final ClassModel model) => model.key == modelKey)) {
-          convert = (final Object? value) =>
-              _renderModel(className, field, value, renderConst: false);
+          convert = (final Object? value) {
+            if (value is! Map<String, Object?>) {
+              if (value is String) {
+                isConst = false;
+                return value;
+              }
+              return '';
+            }
+            return _renderModel(className, field, value, renderConst: false);
+          };
         } else {
           convert = _renderBasic;
         }
@@ -1115,7 +1201,7 @@ class DartModelsGenerator extends ModelsGenerator {
     }
 
     final String $type =
-        field.renderType(className, iterable: false, nullable: false);
+        _renderType(className, field, iterable: false, nullable: false);
     final Iterable<Object?> iterable =
         value is Iterable<Object?> ? value : const Iterable<Object?>.empty();
     final Iterable<String> values;
@@ -1123,18 +1209,15 @@ class DartModelsGenerator extends ModelsGenerator {
             (values = iterable.map(convert).where((final _) => _.isNotEmpty))
                 .isEmpty
         ? 'const Iterable<${$type}>.empty()'
-        : 'const <${$type}>[${values.join(',')}]';
+        : '${isConst ? 'const ' : ''} <${$type}>[${values.join(',')}]';
   }
 
   String _renderModel<T extends Object?>(
     final String className,
     final FieldModel field,
-    final Object? value, {
+    final Map<String, Object?> value, {
     final bool renderConst = true,
   }) {
-    if (value is! Map<String, Object?>) {
-      return '';
-    }
     final ClassModel? fieldClass = models.firstWhereOrNull(
       (final ClassModel model) =>
           model.key == field.reference.split('[').first.normalize(),
@@ -1178,7 +1261,7 @@ class DartModelsGenerator extends ModelsGenerator {
           .map((final String _) => _.trim())
           .contains(value)) {
         final String enumName =
-            field.renderType(className, iterable: false, nullable: false);
+            _renderType(className, field, iterable: false, nullable: false);
         return '$enumName.'
             '${field.convert ? value.toCamelCase() : value.normalize()}';
       }
@@ -1200,7 +1283,7 @@ class DartModelsGenerator extends ModelsGenerator {
           return '';
         }
         final String $type =
-            field.renderType(className, iterable: false, nullable: false);
+            _renderType(className, field, iterable: false, nullable: false);
         String converter =
             field.nullable ? 'optional${$type}' : $type.decapitalize();
         if (converter.endsWith('Model')) {
@@ -1210,7 +1293,7 @@ class DartModelsGenerator extends ModelsGenerator {
 
       case FieldType.$enum:
         final String $type =
-            field.renderType(className, iterable: false, nullable: false);
+            _renderType(className, field, iterable: false, nullable: false);
         return field.nullable
             ? 'const OptionalEnumConverter<${$type}>(${$type}.values,)'
             : 'const EnumConverter<${$type}>(${$type}.values,)';
@@ -1235,7 +1318,7 @@ class DartModelsGenerator extends ModelsGenerator {
           return '';
         }
         final String type =
-            field.renderType(className, iterable: false, nullable: false);
+            _renderType(className, field, iterable: false, nullable: false);
         String converter =
             field.nullable ? 'optional$type' : type.decapitalize();
         if (converter.endsWith('Model')) {
@@ -1250,7 +1333,7 @@ class DartModelsGenerator extends ModelsGenerator {
 
       case FieldType.$$enum:
         final String type =
-            field.renderType(className, iterable: false, nullable: false);
+            _renderType(className, field, iterable: false, nullable: false);
         final String converter = field.nullable
             ? 'OptionalEnumConverter<$type>($type.values,)'
             : 'EnumConverter<$type>($type.values,)';
@@ -1346,7 +1429,8 @@ class DartModelsGenerator extends ModelsGenerator {
       case FieldType.$integer:
       case FieldType.$float:
       case FieldType.$string:
-        $type ??= field.renderType(className, iterable: false, nullable: false);
+        $type ??=
+            _renderType(className, field, iterable: false, nullable: false);
         String single = "$map['${field.key}']${field.nullable ? '' : '!'}";
         if ($type != Object().runtimeType.toString()) {
           if (field.nullable && field.checkType) {
@@ -1388,7 +1472,8 @@ class DartModelsGenerator extends ModelsGenerator {
       case FieldType.$$integer:
       case FieldType.$$float:
       case FieldType.$$string:
-        $type ??= field.renderType(className, iterable: false, nullable: false);
+        $type ??=
+            _renderType(className, field, iterable: false, nullable: false);
         String iterable = "$map['${field.key}']${field.nullable ? '' : '!'}";
         if (field.nullable && field.checkType) {
           final Object? $default = field.checkTypeDefault ??
@@ -1684,7 +1769,6 @@ class FieldModel {
     final FieldEquality? equality,
     final bool? toString,
     final bool? convert,
-    final bool? convertClasses,
     final bool? checkType,
     this.checkTypeDefault,
     final bool? castIterable,
@@ -1700,7 +1784,6 @@ class FieldModel {
         equality = equality ?? FieldEquality.ordered,
         $toString = toString ?? true,
         convert = convert ?? true,
-        convertClasses = convertClasses ?? true,
         checkType = checkType ?? true,
         castIterable = castIterable ?? false;
 
@@ -1749,10 +1832,6 @@ class FieldModel {
   /// If this field name should be converted using [StringUtils.toCamelCase].
   final bool convert;
 
-  /// If other data types relatable to this field should be converted using
-  /// [StringUtils.toCamelCase].
-  final bool convertClasses;
-
   /// If value type should be checked on [deserialize] and replaced for
   /// [checkTypeDefault] if needed.
   final bool checkType;
@@ -1768,46 +1847,6 @@ class FieldModel {
   String get name => dartName.isEmpty
       ? (convert ? key.toCamelCase() : key.normalize())
       : dartName;
-
-  /// The type of this field in a form of [String].
-  String renderType(
-    final String className, {
-    final bool iterable = true,
-    final bool? nullable,
-  }) {
-    String $type;
-    if (reference.isNotEmpty &&
-        (type == FieldType.$object || type == FieldType.$$object)) {
-      $type = reference.split('.').last;
-      if ($type.endsWith('[]')) {
-        $type = $type.substring(0, $type.length - 2);
-      }
-      $type = convertClasses ? $type.toCamelCase() : $type.normalize();
-      $type = type == FieldType.$$object ? 'Iterable<${$type}>' : $type;
-    } else if (reference.isNotEmpty &&
-        (type == FieldType.$enum || type == FieldType.$$enum)) {
-      $type = convertClasses ? className.toCamelCase() : className.normalize();
-      $type = $type.endsWith('Model')
-          ? $type.substring(0, $type.length - 5)
-          : $type;
-
-      $type += (convert ? name.toCamelCase() : name.normalize()).capitalize();
-      $type = type == FieldType.$$enum ? 'Iterable<${$type}>' : $type;
-    } else {
-      $type = type.object.toString();
-    }
-
-    if (!(nullable ?? this.nullable) && $type.endsWith('?')) {
-      $type = $type.substring(0, $type.length - 1);
-    }
-    if (!iterable && $type.startsWith('Iterable<') && $type.endsWith('>')) {
-      $type = $type.substring(9, $type.length - 1);
-    }
-    if ((nullable ?? this.nullable) && !$type.endsWith('?')) {
-      $type = '${$type}?';
-    }
-    return $type;
-  }
 
   @override
   bool operator ==(final Object other) =>
@@ -1828,7 +1867,6 @@ class FieldModel {
           other.equality == equality &&
           other.$toString == $toString &&
           other.convert == convert &&
-          other.convertClasses == convertClasses &&
           other.checkType == checkType &&
           other.checkTypeDefault == checkTypeDefault &&
           other.castIterable == castIterable;
@@ -1850,7 +1888,6 @@ class FieldModel {
       equality.hashCode ^
       $toString.hashCode ^
       convert.hashCode ^
-      convertClasses.hashCode ^
       checkType.hashCode ^
       checkTypeDefault.hashCode ^
       castIterable.hashCode;
@@ -2030,6 +2067,6 @@ class InstanceModel {
 
   /// The valid dart name of this field.
   String get name => dartName.isEmpty
-      ? (convert ? key.toCamelCase().capitalize() : key.normalize())
+      ? (convert ? key.toCamelCase() : key.normalize())
       : dartName;
 }

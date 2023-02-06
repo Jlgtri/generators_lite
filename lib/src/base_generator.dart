@@ -10,6 +10,7 @@ import 'package:glob/glob.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart';
 import 'package:yaml/yaml.dart';
+import 'package:json5/json5.dart';
 
 /// The base [Command] for all generators.
 abstract class GeneratorCommand<Generator extends BaseGenerator>
@@ -61,13 +62,10 @@ abstract class BaseGenerator implements Builder {
     final Encoding? exportEncoding,
     final Encoding? encoding,
     final DartFormatter? formatter,
-    this.jsonReviver,
-    final bool? yamlRecover,
     final bool? loadFiles,
   })  : loadFiles = loadFiles ?? true,
         exportEncoding = exportEncoding ?? utf8,
         encoding = encoding ?? utf8,
-        yamlRecover = yamlRecover ?? false,
         formatter =
             formatter ?? DartFormatter(lineEnding: '\r\n', fixes: StyleFix.all);
 
@@ -85,13 +83,6 @@ abstract class BaseGenerator implements Builder {
 
   /// The [formatter] used to format generated files.
   final DartFormatter formatter;
-
-  /// The reviver for loading of [.json] files.
-  final Object? Function(Object?, Object?)? jsonReviver;
-
-  /// If yaml parser should attempt to recover from parse errors and return
-  /// invalid or synthetic nodes.
-  final bool yamlRecover;
 
   /// If file contents should be loaded during [build] into [fileMap].
   final bool loadFiles;
@@ -132,22 +123,16 @@ abstract class BaseGenerator implements Builder {
           fileExtension = basename(file.path);
         }
       }
-      final Object? content;
-      switch (fileExtension) {
-        case '.json':
-          content = json.decode(await fileContent(), reviver: jsonReviver);
-          break;
-        case '.yaml':
-          content = loadYaml(
-            await fileContent(),
-            sourceUrl: file.uri,
-            recover: yamlRecover,
-          );
-          break;
-        default:
-          content = null;
+      if (fileExtension.startsWith('.json')) {
+        fileMap[canonicalize(file.path)] = json5Decode(await fileContent());
+      } else if (fileExtension.startsWith('.yaml')) {
+        fileMap[canonicalize(file.path)] = loadYaml(
+          await fileContent(),
+          sourceUrl: file.uri,
+        );
+      } else {
+        fileMap[canonicalize(file.path)] = null;
       }
-      fileMap[canonicalize(file.path)] = content;
     }
   }
 }

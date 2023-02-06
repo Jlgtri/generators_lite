@@ -217,8 +217,6 @@ abstract class IconsGenerator extends BaseGenerator {
     super.exportEncoding,
     super.encoding,
     super.formatter,
-    super.jsonReviver,
-    super.yamlRecover,
     final String? baseName,
     final String? fontFamily,
     final int? baseCodePoint,
@@ -456,8 +454,6 @@ class DartIconsGenerator extends IconsGenerator {
     super.exportEncoding,
     super.encoding,
     super.formatter,
-    super.jsonReviver,
-    super.yamlRecover,
     super.baseName,
     super.fontFamily,
     super.height,
@@ -474,7 +470,8 @@ class DartIconsGenerator extends IconsGenerator {
   @mustCallSuper
   FutureOr<void> build([final BuildStep? buildStep]) async {
     await super.build(buildStep);
-    if (buildStep != null) {
+    if (iconsMap.isEmpty) {
+    } else if (buildStep != null) {
       await buildStep.writeAsString(
         buildStep.allowedOutputs.first,
         buildStep.trackStage('Generate $exportPath.', () => generate(iconsMap)),

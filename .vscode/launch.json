@@ -5,19 +5,19 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "test",
+      "name": "Debug Generator",
       "request": "launch",
       "type": "dart",
       "args": [
         "models",
         "-i",
-        "source/models.json",
+        "source/models.jsonc",
         "-e",
         "lib/models.g.dart"
       ]
     },
     {
-      "name": "Debug Generator",
+      "name": "build_runner",
       "request": "launch",
       "program": ".dart_tool/build/entrypoint/build.dart",
       "type": "dart",
