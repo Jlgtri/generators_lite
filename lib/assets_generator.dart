@@ -252,7 +252,7 @@ class DartAssetsGenerator extends AssetsGenerator {
       ..writeDoc('')
       ..writeDoc('Modify this file at your own risk!')
       ..writeDoc('')
-      ..writeDoc('See: https://pub.dev/packages/generators#assets-generator')
+      ..writeDoc('See: https://pub.dev/packages/generators_lite#assets-generator')
       ..writeDoc('')
       ..writeImports(<String>['package:meta/meta.dart']);
   }
@@ -279,7 +279,7 @@ class DartAssetsGenerator extends AssetsGenerator {
         )
         ..writeDoc('')
         ..writeDoc(
-          'See: https://pub.dev/packages/generators#icon-fonts-generator',
+          'See: https://pub.dev/packages/generators_lite#icon-fonts-generator',
         )
         ..writeln('const $cls $className = $cls._();')
         ..writeln();

@@ -517,7 +517,7 @@ class DartIconsGenerator extends IconsGenerator {
       ..writeDoc('Modify this file at your own risk!')
       ..writeDoc('')
       ..writeDoc(
-        'See: https://pub.dev/packages/generators#icon-fonts-generator',
+        'See: https://pub.dev/packages/generators_lite#icon-fonts-generator',
       )
       ..writeDoc('')
       ..writeImports(<String>[
@@ -544,7 +544,7 @@ class DartIconsGenerator extends IconsGenerator {
         ..writeDoc('This is a generated structure of an Icon Font.')
         ..writeDoc('')
         ..writeDoc(
-          'See: https://pub.dev/packages/generators#icon-fonts-generator',
+          'See: https://pub.dev/packages/generators_lite#icon-fonts-generator',
         )
         ..writeln('const $cls $className = $cls._();')
         ..writeln();

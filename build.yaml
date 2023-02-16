@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=./build.yaml
 builders:
   assets:
-    import: 'package:generators/assets_generator.dart'
+    import: 'package:generators_lite/assets_generator.dart'
     builder_factories: ['assetsGeneratorBuilder']
     build_extensions: { '$package$': ['lib/assets.g.dart'] }
     build_to: source
@@ -12,7 +12,7 @@ builders:
         export_path: lib/assets.g.dart
 
   i18n:
-    import: 'package:generators/i18n_generator.dart'
+    import: 'package:generators_lite/i18n_generator.dart'
     builder_factories: ['i18nGeneratorBuilder']
     build_extensions: { '$package$': ['lib/i18n.g.dart'] }
     build_to: source
@@ -23,7 +23,7 @@ builders:
         export_path: lib/i18n.g.dart
 
   models:
-    import: 'package:generators/models_generator.dart'
+    import: 'package:generators_lite/models_generator.dart'
     builder_factories: ['modelsGeneratorBuilder']
     build_extensions: { '$package$': ['lib/models.g.dart'] }
     build_to: source
@@ -34,7 +34,7 @@ builders:
         export_path: lib/models.g.dart
 
   icons:
-    import: 'package:generators/icons_generator.dart'
+    import: 'package:generators_lite/icons_generator.dart'
     builder_factories: ['iconsGeneratorBuilder']
     build_extensions: { '$package$': ['lib/icons.g.dart', 'lib/icons.ttf'] }
     build_to: source

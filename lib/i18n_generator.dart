@@ -553,7 +553,7 @@ class DartI18NGenerator extends I18NGenerator {
       ..writeDoc('')
       ..writeDoc('Modify this file at your own risk!')
       ..writeDoc('')
-      ..writeDoc('See: https://pub.dev/packages/generators#i18n-generator')
+      ..writeDoc('See: https://pub.dev/packages/generators_lite#i18n-generator')
       ..writeDoc('')
       ..writeImports(<String>[
         ...imports,

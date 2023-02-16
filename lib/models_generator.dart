@@ -467,7 +467,7 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeDoc('Modify this file at your own risk!')
       ..writeDoc('')
       ..writeDoc(
-        'See: https://pub.dev/packages/generators#data-class-generator',
+        'See: https://pub.dev/packages/generators_lite#data-class-generator',
       )
       ..writeDoc('')
       ..writeImports(<String>[

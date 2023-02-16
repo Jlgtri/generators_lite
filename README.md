@@ -49,16 +49,22 @@ your [`pubspec.yaml`][].
 ```yaml
 dev_dependencies:
   build_runner: any
-  generators:
+  generators_lite:
 ```
 
 Alternatively, you can use plain console commands to do all the same things.
-Enable the package globally and use it as a console tool.
+Enable the package globally and use it as a console tool:
 
 ```ps
-flutter pub global activate generators
+dart pub global activate generators_lite
 
 generate <command> [arguments]
+```
+
+Or call the package directly:
+
+```ps
+dart run generators_lite:main <command> [arguments]
 ```
 
 Command is pointing to a generator to be used and arguments are passed directly
@@ -101,7 +107,7 @@ targets:
 To run the generator, you want to run the following command:
 
 ```ps
-flutter pub run build_runner build --delete-conflicting-outputs
+dart run build_runner build --delete-conflicting-outputs
 ```
 
 To make things even easier, you can also setup [VS Code task][vs-code-task-link]
@@ -639,7 +645,7 @@ Leave your suggestions at the official [issue tracker][issue-tracker-link].
 [dev_dependencies]: https://dart.dev/tools/pub/dependencies#dev-dependencies
 [fantasticon-link]: https://www.npmjs.com/package/fantasticon
 [i18n-link]: https://en.wikipedia.org/wiki/Internationalization_and_localization
-[issue-tracker-link]: https://github.com/Jlgtri/generators/issues
+[issue-tracker-link]: https://github.com/Jlgtri/generators_lite/issues
 [node-js-link]: https://nodejs.org/
 [svgo-link]: https://github.com/svg/svgo
 [vs-code-task-link]: https://code.visualstudio.com/docs/editor/tasks

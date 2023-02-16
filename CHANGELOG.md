@@ -13,5 +13,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial Release including Assets, I18N, Data Class and Icon Fonts generators.
 
-[unreleased]: https://github.com/Jlgtri/generators/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/Jlgtri/generators/releases/tag/v1.0.0
+[unreleased]: https://github.com/Jlgtri/generators_lite/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Jlgtri/generators_lite/releases/tag/v1.0.0

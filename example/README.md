@@ -13,14 +13,14 @@ targets:
         - .dart_tool/**
 
     builders:
-      generators|assets:
+      generators_lite|assets:
         enabled: true
         options:
           import_path: source/assets
           export_path: lib/src/generated/assets.g.dart
           base_name: CustomAssets
 
-      generators|i18n:
+      generators_lite|i18n:
         enabled: true
         options:
           import_path: source/i18n
@@ -32,7 +32,7 @@ targets:
           base_class_name: CustomL10N
           enum_class_name: I18NLocaleCustom
 
-      generators|models:
+      generators_lite|models:
         enabled: true
         options:
           import_path: source/models.json
@@ -40,7 +40,7 @@ targets:
           imports:
             - ../custom_json_converters.dart
 
-      generators|icons:
+      generators_lite|icons:
         enabled: true
         options:
           import_path: source/icons
