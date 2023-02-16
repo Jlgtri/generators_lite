@@ -1,5 +1,9 @@
 <div align="center">
-  <img src="./logo.png?raw=true" width="100%" alt="Logo" />
+  <img
+    src="https://github.com/Jlgtri/generators_lite/blob/main/logo.png?raw=true"
+    width="100%"
+    alt="Logo"
+  />
 </div>
 
 ---
