@@ -7,10 +7,10 @@ import 'package:args/command_runner.dart';
 import 'package:build/build.dart';
 import 'package:dart_style/dart_style.dart';
 import 'package:glob/glob.dart';
+import 'package:json5/json5.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart';
 import 'package:yaml/yaml.dart';
-import 'package:json5/json5.dart';
 
 /// The base [Command] for all generators.
 abstract class GeneratorCommand<Generator extends BaseGenerator>
