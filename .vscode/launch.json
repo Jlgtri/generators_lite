@@ -11,9 +11,9 @@
       "args": [
         "models",
         "-i",
-        "source/models.jsonc",
+        "source/models.json",
         "-e",
-        "lib/models.g.dart"
+        "lib/models/"
       ]
     },
     {

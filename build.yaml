@@ -3,7 +3,7 @@ builders:
   assets:
     import: 'package:generators_lite/assets_generator.dart'
     builder_factories: ['assetsGeneratorBuilder']
-    build_extensions: { '$package$': ['lib/assets.g.dart'] }
+    build_extensions: { '$lib$': ['lib/assets.g.dart'] }
     build_to: source
     auto_apply: root_package
     defaults:
@@ -14,7 +14,7 @@ builders:
   i18n:
     import: 'package:generators_lite/i18n_generator.dart'
     builder_factories: ['i18nGeneratorBuilder']
-    build_extensions: { '$package$': ['lib/i18n.g.dart'] }
+    build_extensions: { '$lib$': ['lib/i18n.g.dart'] }
     build_to: source
     auto_apply: root_package
     defaults:
@@ -25,7 +25,7 @@ builders:
   models:
     import: 'package:generators_lite/models_generator.dart'
     builder_factories: ['modelsGeneratorBuilder']
-    build_extensions: { '$package$': ['lib/models.g.dart'] }
+    build_extensions: { '$lib$': ['lib/models.g.dart'] }
     build_to: source
     auto_apply: root_package
     defaults:
@@ -36,7 +36,7 @@ builders:
   icons:
     import: 'package:generators_lite/icons_generator.dart'
     builder_factories: ['iconsGeneratorBuilder']
-    build_extensions: { '$package$': ['lib/icons.g.dart', 'lib/icons.ttf'] }
+    build_extensions: { '$lib$': ['lib/icons.g.dart', 'lib/icons.ttf'] }
     build_to: source
     auto_apply: root_package
     defaults:

@@ -172,11 +172,6 @@ abstract class ModelsGenerator extends BaseGenerator {
   final List<ClassModel> models = <ClassModel>[];
 
   @override
-  Map<String, List<String>> get buildExtensions => <String, List<String>>{
-        r'$package$': <String>[exportPath],
-      };
-
-  @override
   @mustCallSuper
   FutureOr<void> build([final BuildStep? buildStep]) async {
     await super.build(buildStep);
@@ -376,55 +371,87 @@ class DartModelsGenerator extends ModelsGenerator {
   }
 
   @override
+  Map<String, List<String>> get buildExtensions => <String, List<String>>{
+        r'$lib$': _isDirectoryExport &&
+                FileSystemEntity.typeSync(importPath) ==
+                    FileSystemEntityType.directory
+            ? <String>{
+                for (final FileSystemEntity entity
+                    in Directory(importPath).listSync(recursive: true))
+                  joinAll(<String>[
+                    ...split(exportPath),
+                    relative(
+                      '${withoutExtension(entity.path)}.g.dart',
+                      from: importPath,
+                    ),
+                  ]),
+              }.toList()
+            : <String>[exportPath]
+      };
+
+  @override
   @mustCallSuper
   FutureOr<void> build([final BuildStep? buildStep]) async {
     await super.build(buildStep);
     if (models.isEmpty) {
-    } else if (buildStep != null) {
+    } else if (buildStep != null && buildStep.allowedOutputs.length == 1) {
       await buildStep.writeAsString(
         buildStep.allowedOutputs.single,
         buildStep.trackStage('Generate $exportPath.', () => generate(models)),
         encoding: exportEncoding,
       );
-    } else {
-      if (_isDirectoryExport) {
-        final Map<Uri, Iterable<ClassModel>> files =
-            <Uri, Iterable<ClassModel>>{};
-        for (final ClassModel model in models) {
-          final List<String> parts =
-              (model.reference.isEmpty ? model.name : model.reference)
-                  .split('.');
-          final String filename =
-              parts.length > 2 ? parts.elementAt(parts.length - 2) : parts.last;
-          final Uri uri = Uri(
-            pathSegments: <String>[
-              exportPath,
-              if (parts.length > 2) ...parts.sublist(0, parts.length - 2),
-              '$filename.g.dart'
-            ],
-          );
-          files[uri] = <ClassModel>[...?files[uri], model];
+    } else if (_isDirectoryExport) {
+      final Map<String, Iterable<ClassModel>> files =
+          <String, Iterable<ClassModel>>{};
+      for (final ClassModel model in models) {
+        final List<String> parts =
+            (model.reference.isEmpty ? model.name : model.reference).split('.');
+        final String filename =
+            parts.length >= 2 ? parts.elementAt(parts.length - 2) : parts.last;
+        final String path = joinAll(<String>[
+          ...split(exportPath),
+          if (parts.length >= 2) ...parts.sublist(0, parts.length - 2),
+          '$filename.g.dart'
+        ]);
+        files[path] = <ClassModel>[...?files[path], model];
+      }
+
+      if (buildStep != null) {
+        for (final AssetId output in buildStep.allowedOutputs) {
+          final Iterable<ClassModel>? models =
+              files[joinAll(split(output.path).sublist(1))];
+          if (models != null) {
+            await buildStep.writeAsString(
+              output,
+              buildStep.trackStage(
+                'Generate ${output.path}.',
+                () => generate(models),
+              ),
+              encoding: exportEncoding,
+            );
+          }
         }
-        for (final Uri uri in files.keys) {
-          final File file = File.fromUri(uri);
+      } else {
+        for (final String path in files.keys) {
+          final File file = File(path);
           await file.parent.create(recursive: true);
           await file.writeAsString(
-            generate(files[uri]!),
+            generate(files[path]!),
             encoding: exportEncoding,
             mode: FileMode.writeOnly,
             flush: true,
           );
         }
-      } else {
-        final File file = File(exportPath);
-        await file.parent.create(recursive: true);
-        await file.writeAsString(
-          generate(models),
-          encoding: exportEncoding,
-          mode: FileMode.writeOnly,
-          flush: true,
-        );
       }
+    } else {
+      final File file = File(exportPath);
+      await file.parent.create(recursive: true);
+      await file.writeAsString(
+        generate(models),
+        encoding: exportEncoding,
+        mode: FileMode.writeOnly,
+        flush: true,
+      );
     }
   }
 
@@ -808,19 +835,29 @@ class DartModelsGenerator extends ModelsGenerator {
           for (final FieldModel field in model.fields)
             (final FieldModel field) {
               final String $default = _renderDefault(model.name, field);
-              if (field.required || !field.nullable && $default.isEmpty) {
-                return 'required this.${field.name}';
-              } else if ($default.isNotEmpty) {
-                return 'this.${field.name} = ${$default}';
-              } else {
-                return 'this.${field.name}';
-              }
+              final String $field = field.required ? 'required ' : '';
+              return $field +
+                  ($default.isNotEmpty
+                      ? 'final '
+                          '${_renderType(model.name, field, nullable: true)} '
+                          '${field.name}'
+                      : 'this.${field.name}');
             }(field)
         ]..sort(
             (final String a, final String b) =>
                 (b.startsWith('required') ? 1 : -1)
                     .compareTo(a.startsWith('required') ? 1 : -1),
           ),
+        outerFields: <String?>[
+          for (final FieldModel field in model.fields)
+            (final String $default) {
+              if ($default.isNotEmpty) {
+                return '${field.name} = ${field.name} ?? ${$default}';
+              } else {
+                return null;
+              }
+            }(_renderDefault(model.name, field))
+        ].whereType(),
       )
       ..writeln();
 
@@ -1075,7 +1112,7 @@ class DartModelsGenerator extends ModelsGenerator {
   String _renderType(
     final String className,
     final FieldModel field, {
-    final bool iterable = true,
+    final bool? iterable,
     final bool? nullable,
   }) {
     String $type;
@@ -1104,8 +1141,16 @@ class DartModelsGenerator extends ModelsGenerator {
     if (!(nullable ?? field.nullable) && $type.endsWith('?')) {
       $type = $type.substring(0, $type.length - 1);
     }
-    if (!iterable && $type.startsWith('Iterable<') && $type.endsWith('>')) {
+    if (!(iterable ?? field.type.name.startsWith(r'$$')) &&
+        $type.startsWith('Iterable<') &&
+        $type.endsWith('>')) {
       $type = $type.substring(9, $type.length - 1);
+    }
+    if ((iterable ?? field.type.name.startsWith(r'$$')) &&
+        !$type.startsWith('Iterable<')) {
+      if (!($type = 'Iterable<${$type}').endsWith('>')) {
+        $type = '${$type}>';
+      }
     }
     if ((nullable ?? field.nullable) && !$type.endsWith('?')) {
       $type = '${$type}?';
@@ -1400,7 +1445,6 @@ class DartModelsGenerator extends ModelsGenerator {
     final String className,
     final FieldModel field, {
     final String map = 'map',
-    final bool emptyRequiredIterables = true,
   }) {
     String? $type;
     final String converter = renderConverter(className, field);
@@ -1434,14 +1478,7 @@ class DartModelsGenerator extends ModelsGenerator {
         String single = "$map['${field.key}']${field.nullable ? '' : '!'}";
         if ($type != Object().runtimeType.toString()) {
           if (field.nullable && field.checkType) {
-            final Object? $default = field.checkTypeDefault ??
-                (field.required ? field.$default : null);
-            String $$default = _renderDefault(className, field, $default);
-            if ($$default.isEmpty) {
-              $$default = null.toString();
-            }
-            single = '$single is ${$type} ? '
-                '$single! as ${$type} : ${$$default}';
+            single = '$single is ${$type} ? $single! as ${$type} : null';
           } else {
             single += ' as ${$type}${field.nullable ? '?' : ''}';
           }
@@ -1490,9 +1527,6 @@ class DartModelsGenerator extends ModelsGenerator {
         if ($type != Object().runtimeType.toString()) {
           iterable = '($iterable)${field.nullable ? '?' : ''}.'
               '${field.castIterable ? 'cast' : 'whereType'}<${$type}>()';
-        }
-        if (field.nullable && emptyRequiredIterables) {
-          iterable += ' ?? const Iterable<${$type}>.empty()';
         }
         return converter.isEmpty ? iterable : '$converter.fromJson($iterable,)';
     }

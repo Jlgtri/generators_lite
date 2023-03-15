@@ -128,7 +128,7 @@ abstract class AssetsGenerator extends BaseGenerator {
 
   @override
   Map<String, List<String>> get buildExtensions => <String, List<String>>{
-        r'$package$': <String>[exportPath],
+        r'$lib$': <String>[exportPath],
       };
 
   @override
@@ -252,7 +252,8 @@ class DartAssetsGenerator extends AssetsGenerator {
       ..writeDoc('')
       ..writeDoc('Modify this file at your own risk!')
       ..writeDoc('')
-      ..writeDoc('See: https://pub.dev/packages/generators_lite#assets-generator')
+      ..writeDoc(
+          'See: https://pub.dev/packages/generators_lite#assets-generator')
       ..writeDoc('')
       ..writeImports(<String>['package:meta/meta.dart']);
   }

@@ -263,7 +263,7 @@ abstract class I18NGenerator extends BaseGenerator {
 
   @override
   Map<String, List<String>> get buildExtensions => <String, List<String>>{
-        r'$package$': <String>[exportPath],
+        r'$lib$': <String>[exportPath],
       };
 
   @override

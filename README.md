@@ -96,9 +96,9 @@ targets:
   $default:
     sources:
       include:
-        - '**'
-        - lib/$lib$
         - $package$
+        - lib/$lib$
+        - '**'
       exclude:
         - .dart_tool/**
 ```

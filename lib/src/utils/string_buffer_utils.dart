@@ -31,6 +31,7 @@ extension StringBufferUtils on StringBuffer {
     final Iterable<String> bodyFields = const Iterable<String>.empty(),
     final String superConstructor = '',
     final Iterable<String> superFields = const Iterable<String>.empty(),
+    final Iterable<String> outerFields = const Iterable<String>.empty(),
     final bool useBrackets = false,
     final String separator = ', ',
   }) {
@@ -75,6 +76,10 @@ extension StringBufferUtils on StringBuffer {
           }
         }
         write(')');
+      }
+      if (outerFields.isNotEmpty) {
+        write(superConstructor.isEmpty ? ' : ' : ', ');
+        write(outerFields.join(', '));
       }
     }
 

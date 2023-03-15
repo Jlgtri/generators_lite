@@ -280,7 +280,7 @@ abstract class IconsGenerator extends BaseGenerator {
 
   @override
   Map<String, List<String>> get buildExtensions => <String, List<String>>{
-        r'$package$': <String>[
+        r'$lib$': <String>[
           exportPath,
           fontExportPath,
           '${withoutExtension(fontExportPath)}.json',
