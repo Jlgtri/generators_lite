@@ -253,7 +253,8 @@ class DartAssetsGenerator extends AssetsGenerator {
       ..writeDoc('Modify this file at your own risk!')
       ..writeDoc('')
       ..writeDoc(
-          'See: https://pub.dev/packages/generators_lite#assets-generator')
+        'See: https://pub.dev/packages/generators_lite#assets-generator',
+      )
       ..writeDoc('')
       ..writeImports(<String>['package:meta/meta.dart']);
   }
