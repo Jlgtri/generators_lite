@@ -517,40 +517,42 @@ class DartModelsGenerator extends ModelsGenerator {
         if (model.reference.isEmpty) {
           continue;
         }
-        final List<String> nameParts =
-            model.reference.split('.').reversed.skip(1).toList(growable: false);
+        final Iterable<String> nameParts =
+            model.reference.split('.').reversed.skip(1);
         for (final FieldModel field in model.fields) {
           if ((field.reference.isEmpty) ||
               (field.type != FieldType.$object &&
                   field.type != FieldType.$$object)) {
             continue;
           }
-          final List<String> parts = field.reference
-              .split('.')
-              .reversed
-              .skip(1)
-              .toList(growable: false);
+          final Iterable<String> parts =
+              field.reference.split('.').reversed.skip(1);
           if (parts.isEmpty ||
               const IterableEquality<String>().equals(nameParts, parts)) {
             continue;
           }
 
-          int index,
-              dotCount = 0; // ignore: avoid_multiple_declarations_per_line
-          for (index = 1; index < parts.length; index++) {
-            if (index < nameParts.length &&
-                parts.elementAt(index) == nameParts.elementAt(index)) {
-              dotCount++;
-            } else {
-              dotCount += nameParts.length - index + 1;
-              break;
+          int index = 1;
+          int dotCount = 0;
+          if (!const IterableEquality<String>()
+              .equals(nameParts.skip(index), parts.skip(index))) {
+            for (; index < nameParts.length; index++) {
+              if (index < parts.length &&
+                  parts.elementAt(index) == nameParts.elementAt(index)) {
+                dotCount++;
+              } else {
+                dotCount += nameParts.length - index + 1;
+                break;
+              }
             }
+          } else {
+            index = parts.length;
           }
 
           final String path = <String>[
-            if (dotCount > 0) '.' * dotCount,
-            ...parts.sublist(index).reversed,
-            '${parts.first}.dart'
+            for (int index = 1; index < dotCount; index++) '..',
+            ...parts.skip(index).toList(growable: false).reversed,
+            '${parts.first}.g.dart'
           ].join('/');
           relativeImports["import '$path';"] = dotCount;
         }

@@ -11,7 +11,7 @@
       "args": [
         "models",
         "-i",
-        "source/models.json",
+        "source/models/",
         "-e",
         "lib/models/"
       ]
