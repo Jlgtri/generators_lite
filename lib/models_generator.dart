@@ -517,53 +517,43 @@ class DartModelsGenerator extends ModelsGenerator {
         if (model.reference.isEmpty) {
           continue;
         }
-        final Iterable<String> nameParts =
-            model.reference.split('.').reversed.skip(1);
         for (final FieldModel field in model.fields) {
           if ((field.reference.isEmpty) ||
               (field.type != FieldType.$object &&
                   field.type != FieldType.$$object)) {
             continue;
           }
-          final Iterable<String> parts =
-              field.reference.split('.').reversed.skip(1);
-          if (parts.isEmpty ||
-              const IterableEquality<String>().equals(nameParts, parts)) {
-            continue;
-          }
 
-          int index = 1;
-          int dotCount = 0;
-          if (!const IterableEquality<String>()
-              .equals(nameParts.skip(index), parts.skip(index))) {
-            for (; index < nameParts.length; index++) {
-              if (index < parts.length &&
-                  parts.elementAt(index) == nameParts.elementAt(index)) {
-                dotCount++;
-              } else {
-                dotCount += nameParts.length - index + 1;
-                break;
-              }
+          Iterable<String> nameParts = model.reference.split('.')..removeLast();
+          Iterable<String> parts = field.reference.split('.')..removeLast();
+          if (parts.isNotEmpty &&
+              !const IterableEquality<String>().equals(parts, nameParts)) {
+            while (nameParts.length > 1 &&
+                parts.length > 1 &&
+                nameParts.first == parts.first) {
+              nameParts = nameParts.skip(1);
+              parts = parts.skip(1);
             }
-          } else {
-            index = parts.length;
-          }
 
-          final String path = <String>[
-            for (int index = 1; index < dotCount; index++) '..',
-            ...parts.skip(index).toList(growable: false).reversed,
-            '${parts.first}.g.dart'
-          ].join('/');
-          relativeImports["import '$path';"] = dotCount;
+            final String path = <String>[
+              for (int index = 1; index < nameParts.length; index++) '..',
+              ...parts.take(parts.length - 1),
+              '${parts.last}.g.dart'
+            ].join('/');
+            relativeImports["import '$path';"] = nameParts.length;
+          }
         }
+      }
+      if (relativeImports.isNotEmpty) {
+        buffer.writeln();
       }
       relativeImports.keys.toList(growable: false)
         ..sort(
           (final String key1, final String key2) {
             final num value1 = relativeImports[key1]!;
             final num value2 = relativeImports[key2]!;
-            final int value = (value1 <= 1 ? double.infinity : value1)
-                .compareTo(value2 <= 1 ? double.infinity : value2);
+            final int value = (value2 <= 1 ? double.negativeInfinity : value2)
+                .compareTo(value1 <= 1 ? double.negativeInfinity : value1);
             return value != 0 ? value : key1.compareTo(key2);
           },
         )

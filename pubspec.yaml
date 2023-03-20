@@ -1,7 +1,7 @@
 name: generators_lite
 description: Use the power of automatic code generation for Dart.
 repository: https://github.com/Jlgtri/generators_lite
-version: 1.0.1+1
+version: 1.0.1+2
 environment:
   sdk: '>=2.17.0 <3.0.0'
 
