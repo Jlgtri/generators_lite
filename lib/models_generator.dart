@@ -1315,7 +1315,7 @@ class DartModelsGenerator extends ModelsGenerator {
       case FieldType.$object:
         final String reference = field.reference.split('[').first.normalize();
         if (models.every(
-          (final ClassModel model) => model.key != reference,
+          (final ClassModel model) => model.reference != reference,
         )) {
           return '';
         }
@@ -1351,7 +1351,7 @@ class DartModelsGenerator extends ModelsGenerator {
 
       case FieldType.$$object:
         final String reference = field.reference.split('[').first.normalize();
-        if (models.every((final _) => _.key != reference)) {
+        if (models.every((final _) => _.reference != reference)) {
           return '';
         }
         final String type =
@@ -1443,7 +1443,8 @@ class DartModelsGenerator extends ModelsGenerator {
     switch (field.type) {
       case FieldType.$object:
         final String reference = field.reference.split('[').first.normalize();
-        if (models.any((final ClassModel model) => model.key == reference)) {
+        if (models
+            .any((final ClassModel model) => model.reference == reference)) {
           $type = 'Map<String, Object?>';
         }
         continue single;
@@ -1479,7 +1480,8 @@ class DartModelsGenerator extends ModelsGenerator {
 
       case FieldType.$$object:
         final String reference = field.reference.split('[').first.normalize();
-        if (models.any((final ClassModel model) => model.key == reference)) {
+        if (models
+            .any((final ClassModel model) => model.reference == reference)) {
           $type = 'Map<String, Object?>';
         }
         continue iterable;
