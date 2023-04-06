@@ -120,8 +120,8 @@ extension StringBufferUtils on StringBuffer {
         write($body + oneLine);
       } else if (quote.isNotEmpty) {
         final StringBuffer line = StringBuffer($body);
-        for (final String field in bodyFields) {
-          if (line.toString() != $body) {
+        void writeField(final String field, {final bool nested = false}) {
+          if (!nested && line.toString() != $body) {
             line.write(separator);
           }
           if (line.length + field.length + separator.length + quote.length >
@@ -132,8 +132,24 @@ extension StringBufferUtils on StringBuffer {
               ..clear()
               ..write(quote);
           }
-          line.write(field);
+          if (line.length + field.length > 80 - 2 * 3) {
+            field.splitMapJoin(
+              RegExp(r'\s+'),
+              onNonMatch: (final String field) {
+                writeField(field, nested: true);
+                return '';
+              },
+              onMatch: (final Match match) {
+                line.write(match.group(0));
+                return '';
+              },
+            );
+          } else {
+            line.write(field);
+          }
         }
+
+        bodyFields.forEach(writeField);
         write(line.toString());
       } else if (separator.trim() == ',') {
         write($body);

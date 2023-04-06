@@ -312,7 +312,7 @@ under [dependencies][] in your [`pubspec.yaml`][].
 
 ```yaml
 dependencies:
-  json_converters:
+  json_converters_lite:
 ```
 
 The config example is the following:
@@ -413,6 +413,8 @@ The properties of the class may optionally specify:
   valid Dart name or the generation will be likely to fail.
 - **doc**: The documentation for the generated class. If none is specified,
   uses the mock up one.
+- **static_keys**: If the static fields with the names of actual field keys
+  should be generated. Defaults to `true`.
 - **to_json**: If `toJson` and `fromJson` serialization methods should also be
   created for each model. Defaults to `true`.
 
@@ -422,8 +424,8 @@ The properties of each field may optionally specify:
   brackets at the end, will be an `Iterable` of the same type. For, example:
 
   ```json
-  "type": "int" // will be an integer
-  "type": "int[]" // will be an iterable of integers
+  "type": "integer" // will be an integer
+  "type": "integer[]" // will be an iterable of integers
 
   "type": "enum" // will raise an error
   "type": "enum[a,b,c]" // will be an Enum
