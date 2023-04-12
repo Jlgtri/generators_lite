@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:collection/collection.dart';
+
 import 'sort_imports.dart';
 
 /// The extension with useful methods for [StringBuffer].
@@ -25,14 +27,15 @@ extension StringBufferUtils on StringBuffer {
   /// Generate a whole function block named [constructor] with [fields] as
   /// values.
   void writeFunction(
-    final String constructor,
-    final Iterable<String> fields, {
+    final String constructor, {
+    final Iterable<String> fields = const Iterable<String>.empty(),
+    final Iterable<String> bracketFields = const Iterable<String>.empty(),
     final String bodyConstructor = '',
     final Iterable<String> bodyFields = const Iterable<String>.empty(),
     final String superConstructor = '',
     final Iterable<String> superFields = const Iterable<String>.empty(),
     final Iterable<String> outerFields = const Iterable<String>.empty(),
-    final bool useBrackets = false,
+    final bool squareBrackets = false,
     final String separator = ', ',
   }) {
     String $constructor = constructor.trim();
@@ -46,22 +49,15 @@ extension StringBufferUtils on StringBuffer {
       write('(');
     }
     if (fields.isNotEmpty) {
-      if (useBrackets) {
-        write('{');
-      }
-      final String oneLine = fields.join(', ');
-      if ($constructor.length +
-              oneLine.length +
-              (useBrackets ? 4 : 2) +
-              ($body.isNotEmpty || bodyFields.isNotEmpty ? 3 : 0) <=
-          80 - 2) {
-        write(oneLine);
-      } else {
-        fields.map((final String field) => '$field,').forEach(write);
-      }
-      if (useBrackets) {
-        write('}');
-      }
+      fields.map((final String field) => '$field,').forEach(write);
+    }
+    if (bracketFields.isNotEmpty) {
+      write(squareBrackets ? '[' : '{');
+      (bracketFields.sorted(
+        (final _, final __) => (__.startsWith('required ') ? 1 : -1)
+            .compareTo(_.startsWith('required ') ? 1 : -1),
+      )).map((final String field) => '$field,').forEach(write);
+      write(squareBrackets ? ']' : '}');
     }
     if (!$constructor.contains(' get ')) {
       write(')');

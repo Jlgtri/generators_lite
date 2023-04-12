@@ -34,7 +34,7 @@ extension MapUtils<T extends Object?> on Map<T, Object?> {
       };
 
   /// Return this map with all values set to null.
-  Map<T, Object?> onlyKeys() => <T, Object?>{
+  Map<T, void> onlyKeys() => <T, void>{
         for (final MapEntry<T, Object?> entry in entries)
           entry.key: entry.value is Map<T, Object?>
               ? (entry.value! as Map<T, Object?>).onlyKeys()

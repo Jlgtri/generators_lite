@@ -9,11 +9,12 @@
       "request": "launch",
       "type": "dart",
       "args": [
-        "models",
+        "i18n",
         "-i",
-        "source/models/",
+        "source/i18n/",
         "-e",
-        "lib/models/"
+        "lib/i18n.g.dart",
+        "--serialize",
       ]
     },
     {

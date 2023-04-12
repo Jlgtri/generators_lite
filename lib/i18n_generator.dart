@@ -56,6 +56,12 @@ class I18NCommand extends GeneratorCommand<I18NGenerator> {
         help: 'The name of the I18N enum class. Defaults to `I18NLocale`.',
       )
       ..addFlag(
+        'serialize',
+        help: 'If the generated classes should be serialized using `fromMap`. '
+            'Defaults to `false`.',
+        defaultsTo: null,
+      )
+      ..addFlag(
         'use-flutter',
         help: 'If the generated results are intended to be used with Flutter. '
             "Thus, whether Localizations class and it's Localizations Delegate "
@@ -118,6 +124,8 @@ class I18NCommand extends GeneratorCommand<I18NGenerator> {
         argResults?['base-class-name'] as Object?;
     final Object? enumClassName = options?['enum_class_name'] ??
         argResults?['enum-class-name'] as Object?;
+    final Object? serialize =
+        options?['serialize'] ?? argResults?['serialize'] as Object?;
     final Object? useFlutter =
         options?['use_flutter'] ?? argResults?['use-flutter'] as Object?;
     final Object? localizationsClassName =
@@ -159,6 +167,7 @@ class I18NCommand extends GeneratorCommand<I18NGenerator> {
         enumClassName: enumClassName is String && enumClassName.isNotEmpty
             ? enumClassName.normalize()
             : null,
+        serialize: serialize is bool ? serialize : null,
         useFlutter: useFlutter is bool ? useFlutter : null,
         localizationsClassName: localizationsClassName is String &&
                 localizationsClassName.isNotEmpty
@@ -432,12 +441,14 @@ class DartI18NGenerator extends I18NGenerator {
     super.onlyLanguageCode,
     this.baseClassName,
     final String? enumClassName,
+    final bool? serialize,
     final bool? useFlutter,
     final String? localizationsClassName,
     final String? delegateClassName,
     this.delegateFallbackLocale,
     final Iterable<String>? imports,
   })  : enumClassName = enumClassName ?? 'I18NLocale',
+        serialize = serialize ?? false,
         useFlutter = useFlutter ?? true,
         localizationsClassName = localizationsClassName ?? 'I18NLocalizations',
         delegateClassName = delegateClassName ?? 'I18NDelegate',
@@ -452,6 +463,11 @@ class DartI18NGenerator extends I18NGenerator {
   /// {@macro i18n}
   /// enum class.
   final String enumClassName;
+
+  /// If the generator should serialize created
+  /// {@macro i18n}
+  /// classes with `fromMap` factory.
+  final bool serialize;
 
   /// If the generator should create Flutter's
   /// {@macro i18n}
@@ -564,6 +580,14 @@ class DartI18NGenerator extends I18NGenerator {
         ],
         'package:meta/meta.dart'
       ]);
+    if (serialize) {
+      buffer
+        ..writeln()
+        ..writeln(
+          r'final RegExp _$regExp = '
+          r"RegExp(r'(?<!\\)\$(?:([\w]+)|\{(.+?)\})', caseSensitive: false);",
+        );
+    }
   }
 
   /// Generate Flutter's
@@ -590,7 +614,9 @@ class DartI18NGenerator extends I18NGenerator {
         '[Localizations] widget.',
         indent: 2,
       )
-      ..writeln('static $baseName of(final BuildContext context) {')
+      ..write('static ')
+      ..write(serialize ? enumClassName : baseName)
+      ..writeln(' of(final BuildContext context) {')
       ..writeln(
         'final $localizationsClassName? i18n = '
         'Localizations.of<$localizationsClassName>(context, '
@@ -644,7 +670,9 @@ class DartI18NGenerator extends I18NGenerator {
       ..writeln('}(),')
       ..writeln("'',")
       ..writeln(');')
-      ..writeln('return i18n!.locale();')
+      ..write('return i18n!.locale')
+      ..write(serialize ? '' : '()')
+      ..writeln(';')
       ..writeln('}')
       ..writeln()
       ..writeDoc(
@@ -717,16 +745,25 @@ class DartI18NGenerator extends I18NGenerator {
         ..write(name)
         ..writeln(index < $keys.length - 1 ? ',' : ';');
     }
+
     buffer
       ..writeln()
       ..writeDoc('Return the localization for this locale.')
-      ..writeln('$baseName call() {')
+      ..write('$baseName call(')
+      ..write(
+        serialize
+            ? '[final Map<String, Object?> map = const <String, Object?>{}]'
+            : '',
+      )
+      ..writeln(') {')
       ..writeln('switch (this) {');
     for (final String key in i18nMap.keys) {
       if (key.isNotEmpty) {
         buffer
-          ..writeln('case $enumClassName.${enumName(key)}:')
-          ..writeln('return ${constName(key)};');
+          ..writeln('case ${enumName(key)}:')
+          ..write('return ')
+          ..write(serialize ? '${className(key)}.fromMap(map)' : constName(key))
+          ..writeln(';');
       }
     }
     buffer
@@ -738,7 +775,7 @@ class DartI18NGenerator extends I18NGenerator {
     for (final String key in i18nMap.keys) {
       if (key.isNotEmpty) {
         buffer
-          ..writeln('case $enumClassName.${enumName(key)}:')
+          ..writeln('case ${enumName(key)}:')
           ..writeln("return '$key';");
       }
     }
@@ -754,7 +791,7 @@ class DartI18NGenerator extends I18NGenerator {
         if (key.isNotEmpty) {
           final List<String> keyParts = key.split('_');
           buffer
-            ..writeln('case $enumClassName.${enumName(key)}:')
+            ..writeln('case ${enumName(key)}:')
             ..write('return const ')
             ..writeln(
               keyParts.length >= 3
@@ -789,7 +826,7 @@ class DartI18NGenerator extends I18NGenerator {
         : i18nMap['']!;
     final Map<String, Object?> map =
         i18nMap.getNested(<String>[name, ...keys])! as Map<String, Object?>;
-    if (name.isNotEmpty && keys.isEmpty) {
+    if (!serialize && name.isNotEmpty && keys.isEmpty) {
       final String $name = className(name, keys);
       buffer
         ..writeDoc('The instance of [${$name}] locale.')
@@ -839,15 +876,110 @@ class DartI18NGenerator extends I18NGenerator {
       /// `constructor`
       ..writeFunction(
         'const ${className(name, keys)}._',
-        <String>[
-          if (name.isEmpty) ...<String>[
-            if (keys.isNotEmpty) r'this.$'
-          ] else if (keys.isNotEmpty)
-            'super._'
+        fields: <String>[
+          if (keys.isNotEmpty)
+            if (serialize)
+              if (name.isNotEmpty) r'super._$' else r'this._$'
+            else if (name.isNotEmpty)
+              r'super.$'
+            else
+              r'this.$'
+        ],
+        bracketFields: <String>[
+          if (serialize)
+            for (final MapEntry<String, Object?> entry
+                in map.entries.where((final _) => _.key.isNotEmpty))
+              (String key) {
+                final String field =
+                    entry.value is Map<String, Object?> || name.isNotEmpty
+                        ? (name.isEmpty ? 'required this.' : 'required super.')
+                        : 'final String? ';
+                key = key.removeFunctionType().split('(').first;
+                return field + (convert ? key.toCamelCase() : key.normalize());
+              }(entry.key)
+        ],
+        outerFields: <String>[
+          if (serialize && name.isEmpty)
+            for (final String key in map.keys
+                .where((final _) => _.isNotEmpty)
+                .where((final _) => map[_] is! Map<String, Object?>)
+                .map((final _) => _.removeFunctionType().split('(').first)
+                .map((final _) => convert ? _.toCamelCase() : _.normalize()))
+              '_$key = $key'
         ],
         superConstructor: name.isNotEmpty ? 'super._' : '',
       )
       ..writeln();
+
+    /// `fromMap`
+    if (serialize && name.isNotEmpty) {
+      final Iterable<String> fields = <String>[
+        if (keys.isNotEmpty)
+          'final ${className(name, keys.toList().sublist(0, keys.length - 1))} '
+              'Function() parent',
+        'final Map<String, Object?> map',
+      ];
+      buffer.writeDoc('Convert the map with string keys to this model.');
+      if (map.values.whereType<Map<String, Object?>>().isEmpty) {
+        buffer.writeFunction(
+          'factory ${className(name, keys)}.fromMap(',
+          fields: fields,
+          bodyConstructor:
+              '${map.isEmpty ? 'const ' : ''}${className(name, keys)}._',
+          bodyFields: <String>[
+            'parent',
+            for (final String key in map.keys.where((final _) => _.isNotEmpty))
+              <String>[
+                ((final String _) => convert ? _.toCamelCase() : _.normalize())(
+                  key.removeFunctionType().split('(').first,
+                ),
+                "map['$key'] is String ? map['$key']! as String : null"
+              ].join(': '),
+          ],
+        );
+      } else {
+        buffer.write('factory ${className(name, keys)}.fromMap(');
+        if (keys.isNotEmpty) {
+          fields.map((final _) => '$_,').forEach(buffer.write);
+        } else {
+          fields.forEach(buffer.write);
+        }
+        buffer
+          ..writeln(') {')
+          ..writeln('late final ${className(name, keys)} \$;')
+          ..writeln('return \$ = ${className(name, keys)}._(')
+          ..writeln(keys.isNotEmpty ? 'parent,' : '');
+        for (final MapEntry<String, Object?> entry in map.entries) {
+          final String key =
+              convert ? entry.key.toCamelCase() : entry.key.normalize();
+          if (key.isEmpty) {
+            continue;
+          }
+          buffer.write('$key: ');
+          if (entry.value is Map<String, Object?>) {
+            final String $className =
+                className(name, <String>[...keys, entry.key]);
+            buffer
+              ..writeln('${$className}.fromMap(')
+              ..writeln(r'() => $,')
+              ..writeln(
+                "map['${entry.key}'] is Map<String, Object?> ? "
+                "map['${entry.key}']! as Map<String, Object?> : "
+                'const <String, Object?>{},',
+              )
+              ..writeln('),');
+          } else {
+            buffer.writeln(
+              "map['${entry.key}'] is String ? "
+              "map['${entry.key}']! as String : null,",
+            );
+          }
+        }
+        buffer
+          ..writeln(');')
+          ..writeln('}');
+      }
+    }
 
     /// `Fields`
     generateFields(buffer, i18nMap, name, keys: keys);
@@ -860,7 +992,7 @@ class DartI18NGenerator extends I18NGenerator {
       ..writeln('@override')
       ..writeFunction(
         'bool operator ==',
-        <String>['final Object? other'],
+        fields: <String>['final Object? other'],
         bodyFields: <String>[
           'identical(this, other) || other is ${className(name, keys)}$typeArg',
           ...<String>[
@@ -885,7 +1017,6 @@ class DartI18NGenerator extends I18NGenerator {
       ..writeln('@override')
       ..writeFunction(
         'int get hashCode',
-        <String>[],
         bodyFields: <String>[
           for (final MapEntry<String, Object?> entry in map.entries)
             if (entry.key.isNotEmpty)
@@ -935,7 +1066,10 @@ class DartI18NGenerator extends I18NGenerator {
       buffer
         ..writeln()
         ..writeDoc('The parent of this group.', indent: 2)
-        ..writeln(r'final T $;');
+        ..writeln(serialize ? r'T get $ => _$();' : r'final T $;');
+      if (serialize) {
+        buffer.writeln(r'final T Function() _$;');
+      }
     }
 
     final Object? abstract = i18nMap['']!.getNested(keys);
@@ -962,9 +1096,11 @@ class DartI18NGenerator extends I18NGenerator {
             'The `$plainKey` $fieldType in the $groupName group.',
             indent: 2,
           );
-      } else if (name.isNotEmpty && entry.value == null) {
-        continue;
-      } else if (name.isNotEmpty) {
+      } else {
+        if (entry.value == null ||
+            serialize && entry.value is Map<String, Object?>) {
+          continue;
+        }
         buffer
           ..writeln()
           ..writeln('@override');
@@ -1031,16 +1167,23 @@ class DartI18NGenerator extends I18NGenerator {
             ? ($values.length == 1 ? '${$values.single}?' : 'Object?')
             : ($values.length == 1 ? $values.single : 'Object');
       }
+      if (serialize && entry.value is Map<String, Object?>) {
+        buffer.write('final ');
+      }
       buffer.write('${$className} ');
 
       String functionDeclaration = entry.value is Map<String, Object?>
           ? entry.key
           : entry.key.removeFunctionType();
       if (!functionDeclaration.contains('(')) {
-        functionDeclaration = convert
-            ? functionDeclaration.toCamelCase()
-            : functionDeclaration.normalize();
-        buffer.write('get $functionDeclaration');
+        if (!(serialize && entry.value is Map<String, Object?>)) {
+          buffer.write('get ');
+        }
+        buffer.write(
+          functionDeclaration = convert
+              ? functionDeclaration.toCamelCase()
+              : functionDeclaration.normalize(),
+        );
       } else {
         final List<String> parts = functionDeclaration.split('(');
         buffer.write(
@@ -1051,6 +1194,37 @@ class DartI18NGenerator extends I18NGenerator {
 
       void writeBody(final String value, [final String end = '']) {
         buffer.write(' => ');
+        if (serialize) {
+          if (!functionDeclaration.contains('(')) {
+            buffer.write('_$functionDeclaration');
+          } else {
+            final List<String> functionParts = functionDeclaration.split('(');
+            final List<String> bodyParts = functionParts.last.split('{');
+            buffer
+              ..write('__')
+              ..write(
+                convert
+                    ? functionParts.first.toCamelCase()
+                    : functionParts.first.normalize(),
+              )
+              ..write('(')
+              ..write(
+                <String>[
+                  for (final String param in bodyParts.first.split(','))
+                    (param.split(RegExp(r'\s+')).last)
+                        .replaceAll(RegExp(r'[^\w]'), ''),
+                  if (bodyParts.length > 1)
+                    for (final String param in bodyParts.last.split(','))
+                      ((final String kwarg) => '$kwarg: $kwarg')(
+                        (param.split(RegExp(r'\s+')).last)
+                            .replaceAll(RegExp(r'[^\w]'), ''),
+                      )
+                ].join(', '),
+              )
+              ..write(')');
+          }
+          buffer.write(' ?? ');
+        }
         if (end.isNotEmpty) {
           buffer.writeDoc(
             value,
@@ -1072,11 +1246,11 @@ class DartI18NGenerator extends I18NGenerator {
       final Object? value = entry.value;
       if (value != null) {
         if (value is Map<String, Object?>) {
-          if (name.isEmpty) {
+          if (serialize || name.isEmpty) {
             buffer.writeln(';');
-            continue;
+          } else {
+            writeBody('${$$className}._(this)');
           }
-          writeBody('${$$className}._(this)');
         } else if (value is String) {
           if (value.contains('\n')) {
             buffer
@@ -1095,6 +1269,36 @@ class DartI18NGenerator extends I18NGenerator {
         }
       } else {
         buffer.writeln(';');
+      }
+
+      if (serialize && name.isEmpty && entry.value is! Map<String, Object?>) {
+        final List<String> functionParts = functionDeclaration.split('(');
+        String $$className = $className;
+        if (!$className.endsWith('?')) {
+          $$className += '?';
+        }
+        buffer.writeln('final ${$$className} _${functionParts.first};');
+        if (functionParts.length > 1) {
+          buffer
+            ..writeln('${$$className} __$functionDeclaration =>')
+            ..writeln('_${functionParts.first}?.splitMapJoin(')
+            ..writeln(r'_$regExp,')
+            ..writeln('onMatch: (final Match match) {')
+            ..writeln('switch (match[2] ?? match[1]) {');
+          for (final String param in functionParts.last.split(',')) {
+            final String paramKey = (param.split(RegExp(r'\s+')).last)
+                .replaceAll(RegExp(r'[^\w]'), '');
+            buffer
+              ..writeln("case '$paramKey':")
+              ..writeln('return $paramKey.toString();');
+          }
+          buffer
+            ..writeln('default:')
+            ..writeln('return match[0]!;')
+            ..writeln('}')
+            ..writeln('},')
+            ..writeln(');');
+        }
       }
     }
   }

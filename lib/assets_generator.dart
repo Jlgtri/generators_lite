@@ -305,7 +305,7 @@ class DartAssetsGenerator extends AssetsGenerator {
       /// `Constructor`
       ..writeFunction(
         'const ${className(name, keys)}._',
-        <String>[if (parentName.isNotEmpty) 'final $parentName _'],
+        fields: <String>[if (parentName.isNotEmpty) 'final $parentName _'],
       );
 
     /// `Fields`
@@ -318,7 +318,7 @@ class DartAssetsGenerator extends AssetsGenerator {
       ..writeln('@override')
       ..writeFunction(
         'bool operator ==',
-        <String>['final Object? other'],
+        fields: <String>['final Object? other'],
         bodyFields: <String>[
           'identical(this, other) || other is ${className(name, keys)}',
           ...<String>[
@@ -336,7 +336,6 @@ class DartAssetsGenerator extends AssetsGenerator {
       ..writeln('@override')
       ..writeFunction(
         'int get hashCode',
-        <String>[],
         bodyFields: <String>[
           for (final MapEntry<String, Object?> entry in map.entries)
             if (entry.key.isNotEmpty) basenameWithoutExtension(entry.key)
@@ -426,7 +425,6 @@ class DartAssetsGenerator extends AssetsGenerator {
           )
           ..writeFunction(
             'String get $key',
-            <String>[],
             bodyConstructor: value.contains(r'$') ? "r'" : "'",
             bodyFields: posix.split(value),
             separator: posix.separator,

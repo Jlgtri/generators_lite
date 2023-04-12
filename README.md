@@ -287,6 +287,8 @@ The I18N generator may also have the following keys:
   needed to import that class. Defaults to null.
 - **enum_class_name**: The name of the generated `Enum`.
   Defaults to `I18NLocale`.
+- **serialize**: If the generated classes should be serialized using `fromMap`.
+  Defaults to `false`.
 - **use_flutter**: If the generated results are intended to be used with
   Flutter. Thus, whether Localizations class and it's Localizations Delegate
   should be generated. Defaults to `true`.

@@ -566,7 +566,7 @@ class DartIconsGenerator extends IconsGenerator {
       /// `Constructor`
       ..writeFunction(
         'const ${className(name, keys)}._',
-        <String>[if (parentName.isNotEmpty) 'final $parentName _'],
+        fields: <String>[if (parentName.isNotEmpty) 'final $parentName _'],
       );
 
     /// `Fields`
@@ -607,7 +607,7 @@ class DartIconsGenerator extends IconsGenerator {
       ..writeln('@override')
       ..writeFunction(
         'bool operator ==',
-        <String>['final Object? other'],
+        fields: <String>['final Object? other'],
         bodyFields: <String>[
           'identical(this, other) || other is ${className(name, keys)}',
           ...<String>[
@@ -626,7 +626,7 @@ class DartIconsGenerator extends IconsGenerator {
       ..writeln('@override')
       ..writeFunction(
         'int get hashCode',
-        <String>[],
+        fields: <String>[],
         bodyFields: <String>[
           for (final MapEntry<String, Object?> entry in map.entries)
             if (entry.key.isNotEmpty) posix.basenameWithoutExtension(entry.key)

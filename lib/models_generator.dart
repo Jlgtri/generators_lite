@@ -651,7 +651,7 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeln('@override')
       ..writeFunction(
         '${model.name}? fromJson',
-        <String>['final Map<String, Object?>? value'],
+        fields:<String>['final Map<String, Object?>? value'],
         bodyConstructor: 'value == null ? null : ${model.name}.fromMap',
         bodyFields: <String>['value'],
       )
@@ -659,7 +659,7 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeln('@override')
       ..writeFunction(
         'Map<String, Object?>? toJson',
-        <String>['final ${model.name}? value'],
+       fields: <String>['final ${model.name}? value'],
         bodyConstructor: 'value?.toMap',
       )
       ..writeln('}')
@@ -681,7 +681,7 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeln('@override')
       ..writeFunction(
         '${model.name} fromJson',
-        <String>['final Map<String, Object?> value'],
+        fields:<String>['final Map<String, Object?> value'],
         bodyConstructor: '${model.name}.fromMap',
         bodyFields: <String>['value'],
       )
@@ -689,7 +689,7 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeln('@override')
       ..writeFunction(
         'Map<String, Object?> toJson',
-        <String>['final ${model.name} value'],
+        fields:<String>['final ${model.name} value'],
         bodyConstructor: 'value.toMap',
       )
       ..writeln('}');
@@ -817,9 +817,8 @@ class DartModelsGenerator extends ModelsGenerator {
       /// `constructor`
       ..writeDoc(doc, indent: 4)
       ..writeFunction(
-        useBrackets: true,
         '${isConst ? 'const ' : ''}${model.name}',
-        <String>[
+        bracketFields: <String>[
           for (final FieldModel field in model.fields)
             (final FieldModel field) {
               final String $default = _renderDefault(model, field);
@@ -881,9 +880,8 @@ class DartModelsGenerator extends ModelsGenerator {
       buffer
         ..writeDoc('Return the copy of this model.', indent: 2)
         ..writeFunction(
-          useBrackets: true,
           '${model.name} copyWith',
-          <String>[
+          bracketFields: <String>[
             for (final FieldModel field in model.fields)
               if (field.copy)
                 'final ${_renderType(model, field, nullable: true)} '
@@ -908,9 +906,8 @@ class DartModelsGenerator extends ModelsGenerator {
           indent: 2,
         )
         ..writeFunction(
-          useBrackets: true,
           '${model.name} copyWithNull',
-          <String>[
+          bracketFields: <String>[
             for (final FieldModel field in model.fields)
               if (field.nullable && field.copy)
                 'final bool ${field.name} = false'
@@ -935,7 +932,7 @@ class DartModelsGenerator extends ModelsGenerator {
       )
       ..writeFunction(
         'Map<String, Object?> toMap',
-        const Iterable<String>.empty(),
+
         bodyConstructor: '<String, Object?>{',
         bodyFields: <String>[
           for (final FieldModel field in model.fields)
@@ -957,7 +954,7 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeDoc('Convert the map with string keys to this model.', indent: 2)
       ..writeFunction(
         'factory ${model.name}.fromMap',
-        <String>['final Map<String, Object?> map'],
+        fields:<String>['final Map<String, Object?> map'],
         bodyConstructor: (model.fields.isEmpty ? 'const ' : '') + model.name,
         bodyFields: <String>[
           for (final FieldModel field in model.fields)
@@ -973,7 +970,7 @@ class DartModelsGenerator extends ModelsGenerator {
         ..writeDoc('Convert this model to a json string.', indent: 2)
         ..writeFunction(
           'String toJson',
-          const Iterable<String>.empty(),
+
           bodyConstructor: 'json.encode',
           bodyFields: <String>['toMap()'],
         )
@@ -982,7 +979,7 @@ class DartModelsGenerator extends ModelsGenerator {
         ..writeDoc('Convert the json string to this model.', indent: 2)
         ..writeFunction(
           'factory ${model.name}.fromJson',
-          <String>['final String source'],
+          fields:<String>['final String source'],
           bodyConstructor: '${model.name}.fromMap',
           bodyFields: <String>['json.decode(source)! as Map<String, Object?>'],
         );
@@ -1005,7 +1002,7 @@ class DartModelsGenerator extends ModelsGenerator {
         ..writeln('@override')
         ..writeFunction(
           'int compareTo',
-          <String>['final ${model.name} other'],
+          fields:<String>['final ${model.name} other'],
           bodyFields: compareFields,
           separator: '',
         );
@@ -1037,7 +1034,7 @@ class DartModelsGenerator extends ModelsGenerator {
         ..writeln('@override')
         ..writeFunction(
           'bool operator ==',
-          <String>['final Object? other'],
+          fields:<String>['final Object? other'],
           bodyFields: <String>[
             'identical(this, other) ||other is ${model.name}',
             for (final FieldModel field in model.fields)
@@ -1063,7 +1060,7 @@ class DartModelsGenerator extends ModelsGenerator {
         ..writeln('@override')
         ..writeFunction(
           'int get hashCode',
-          <String>[],
+
           bodyFields: <String>[
             for (final FieldModel field in model.fields)
               if (field.equality != FieldEquality.none)
@@ -1099,7 +1096,7 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeln('@override')
       ..writeFunction(
         'String toString',
-        <String>[],
+
         bodyConstructor:
             "'${model.name.startsWith(r'$') ? r'\' : ''}${model.name}(",
         bodyFields: <String>[
