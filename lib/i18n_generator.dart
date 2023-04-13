@@ -950,8 +950,8 @@ class DartI18NGenerator extends I18NGenerator {
           ..writeln('return \$ = ${className(name, keys)}._(')
           ..writeln(keys.isNotEmpty ? 'parent,' : '');
         for (final MapEntry<String, Object?> entry in map.entries) {
-          final String key =
-              convert ? entry.key.toCamelCase() : entry.key.normalize();
+          String key = entry.key.removeFunctionType().split('(').first;
+          key = convert ? key.toCamelCase() : key.normalize();
           if (key.isEmpty) {
             continue;
           }
