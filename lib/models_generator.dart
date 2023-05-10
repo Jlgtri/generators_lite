@@ -651,7 +651,7 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeln('@override')
       ..writeFunction(
         '${model.name}? fromJson',
-        fields:<String>['final Map<String, Object?>? value'],
+        fields: <String>['final Map<String, Object?>? value'],
         bodyConstructor: 'value == null ? null : ${model.name}.fromMap',
         bodyFields: <String>['value'],
       )
@@ -659,7 +659,7 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeln('@override')
       ..writeFunction(
         'Map<String, Object?>? toJson',
-       fields: <String>['final ${model.name}? value'],
+        fields: <String>['final ${model.name}? value'],
         bodyConstructor: 'value?.toMap',
       )
       ..writeln('}')
@@ -681,7 +681,7 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeln('@override')
       ..writeFunction(
         '${model.name} fromJson',
-        fields:<String>['final Map<String, Object?> value'],
+        fields: <String>['final Map<String, Object?> value'],
         bodyConstructor: '${model.name}.fromMap',
         bodyFields: <String>['value'],
       )
@@ -689,7 +689,7 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeln('@override')
       ..writeFunction(
         'Map<String, Object?> toJson',
-        fields:<String>['final ${model.name} value'],
+        fields: <String>['final ${model.name} value'],
         bodyConstructor: 'value.toMap',
       )
       ..writeln('}');
@@ -932,7 +932,6 @@ class DartModelsGenerator extends ModelsGenerator {
       )
       ..writeFunction(
         'Map<String, Object?> toMap',
-
         bodyConstructor: '<String, Object?>{',
         bodyFields: <String>[
           for (final FieldModel field in model.fields)
@@ -954,7 +953,7 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeDoc('Convert the map with string keys to this model.', indent: 2)
       ..writeFunction(
         'factory ${model.name}.fromMap',
-        fields:<String>['final Map<String, Object?> map'],
+        fields: <String>['final Map<String, Object?> map'],
         bodyConstructor: (model.fields.isEmpty ? 'const ' : '') + model.name,
         bodyFields: <String>[
           for (final FieldModel field in model.fields)
@@ -970,7 +969,6 @@ class DartModelsGenerator extends ModelsGenerator {
         ..writeDoc('Convert this model to a json string.', indent: 2)
         ..writeFunction(
           'String toJson',
-
           bodyConstructor: 'json.encode',
           bodyFields: <String>['toMap()'],
         )
@@ -979,7 +977,7 @@ class DartModelsGenerator extends ModelsGenerator {
         ..writeDoc('Convert the json string to this model.', indent: 2)
         ..writeFunction(
           'factory ${model.name}.fromJson',
-          fields:<String>['final String source'],
+          fields: <String>['final String source'],
           bodyConstructor: '${model.name}.fromMap',
           bodyFields: <String>['json.decode(source)! as Map<String, Object?>'],
         );
@@ -1002,7 +1000,7 @@ class DartModelsGenerator extends ModelsGenerator {
         ..writeln('@override')
         ..writeFunction(
           'int compareTo',
-          fields:<String>['final ${model.name} other'],
+          fields: <String>['final ${model.name} other'],
           bodyFields: compareFields,
           separator: '',
         );
@@ -1034,7 +1032,7 @@ class DartModelsGenerator extends ModelsGenerator {
         ..writeln('@override')
         ..writeFunction(
           'bool operator ==',
-          fields:<String>['final Object? other'],
+          fields: <String>['final Object? other'],
           bodyFields: <String>[
             'identical(this, other) ||other is ${model.name}',
             for (final FieldModel field in model.fields)
@@ -1060,7 +1058,6 @@ class DartModelsGenerator extends ModelsGenerator {
         ..writeln('@override')
         ..writeFunction(
           'int get hashCode',
-
           bodyFields: <String>[
             for (final FieldModel field in model.fields)
               if (field.equality != FieldEquality.none)
@@ -1096,7 +1093,6 @@ class DartModelsGenerator extends ModelsGenerator {
       ..writeln('@override')
       ..writeFunction(
         'String toString',
-
         bodyConstructor:
             "'${model.name.startsWith(r'$') ? r'\' : ''}${model.name}(",
         bodyFields: <String>[
@@ -1392,8 +1388,8 @@ class DartModelsGenerator extends ModelsGenerator {
       case FieldType.$$timedelta:
         return field.nullable
             ? 'const OptionalIterableConverter<Duration, '
-                'num>(durationConverter)'
-            : 'const IterableConverter<Duration, num>(durationConverter)';
+                'String>(durationConverter)'
+            : 'const IterableConverter<Duration, String>(durationConverter)';
 
       case FieldType.$$boolean:
       case FieldType.$$integer:
@@ -1454,15 +1450,9 @@ class DartModelsGenerator extends ModelsGenerator {
         continue single;
 
       case FieldType.$enum:
-        $type = 'String';
-        continue single;
-
       case FieldType.$datetime:
-        $type = 'String';
-        continue single;
-
       case FieldType.$timedelta:
-        $type = 'num';
+        $type = 'String';
         continue single;
 
       single:
@@ -1495,15 +1485,9 @@ class DartModelsGenerator extends ModelsGenerator {
         continue iterable;
 
       case FieldType.$$enum:
-        $type = 'String';
-        continue iterable;
-
       case FieldType.$$datetime:
-        $type = 'String';
-        continue iterable;
-
       case FieldType.$$timedelta:
-        $type = 'num';
+        $type = 'String';
         continue iterable;
 
       iterable:
@@ -2053,6 +2037,50 @@ String _renderDuration(
     }
     duration = Duration(
       seconds: seconds,
+      milliseconds: milliseconds,
+      microseconds: microseconds,
+    );
+  } else if (value is String) {
+    final Iterable<String> parts = value.split(':');
+    if (parts.isEmpty ||
+        parts.length > 4 ||
+        parts.any((final _) => _.contains(RegExp('[^0-9.]')))) {
+      return '';
+    }
+
+    double days = 0;
+    double hours = 0;
+    double minutes = 0;
+    double seconds = double.parse(parts.last);
+    if (parts.length > 3) {
+      final String daysPart = parts.elementAt(parts.length - 4);
+      if (daysPart.isNotEmpty) {
+        days += double.parse(daysPart);
+        hours += 24 * days.remainder(1);
+      }
+    }
+    if (parts.length > 2) {
+      final String hoursPart = parts.elementAt(parts.length - 3);
+      if (hoursPart.isNotEmpty) {
+        hours += double.parse(hoursPart);
+        minutes += 60 * hours.remainder(1);
+      }
+    }
+    if (parts.length > 1) {
+      final String minutesPart = parts.elementAt(parts.length - 2);
+      if (minutesPart.isNotEmpty) {
+        minutes += double.parse(minutesPart);
+        seconds += 60 * minutes.remainder(1);
+      }
+    }
+    final String fraction = seconds.remainder(1).toStringAsFixed(6);
+    final int milliseconds = int.parse(fraction.substring(2, 5));
+    final int microseconds = int.parse(fraction.substring(5, 8));
+    duration = Duration(
+      days: days.floor(),
+      hours: hours.floor(),
+      minutes: minutes.floor(),
+      seconds: seconds.floor(),
       milliseconds: milliseconds,
       microseconds: microseconds,
     );
