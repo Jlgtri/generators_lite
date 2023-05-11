@@ -362,12 +362,21 @@ class DartModelsGenerator extends ModelsGenerator {
   /// The iterable with imports to be used in [generateHeader].
   final Iterable<String> imports;
 
+  late final String _exportPath =
+      _hasCustomSuffix ? dirname(exportPath) : withoutExtension(exportPath);
+  late final String _suffix =
+      _hasCustomSuffix ? extension(exportPath) : '.g.dart';
+  late final bool _hasCustomSuffix = extension(exportPath).isNotEmpty &&
+      basenameWithoutExtension(exportPath).split('').toSet().singleOrNull ==
+          '*';
+
   bool get _isDirectoryExport {
-    final FileSystemEntityType exportType =
-        FileSystemEntity.typeSync(exportPath);
+    final FileSystemEntityType exportType = FileSystemEntity.typeSync(
+      _hasCustomSuffix ? dirname(exportPath) : exportPath,
+    );
     return exportType == FileSystemEntityType.directory ||
         exportType == FileSystemEntityType.notFound &&
-            extension(exportPath).isEmpty;
+            (extension(exportPath).isEmpty || _hasCustomSuffix);
   }
 
   @override
@@ -379,9 +388,9 @@ class DartModelsGenerator extends ModelsGenerator {
                 for (final FileSystemEntity entity
                     in Directory(importPath).listSync(recursive: true))
                   joinAll(<String>[
-                    ...split(exportPath),
+                    ...split(_exportPath),
                     relative(
-                      '${withoutExtension(entity.path)}.g.dart',
+                      '${withoutExtension(entity.path)}$_suffix',
                       from: importPath,
                     ),
                   ]),
@@ -397,7 +406,7 @@ class DartModelsGenerator extends ModelsGenerator {
     } else if (buildStep != null && buildStep.allowedOutputs.length == 1) {
       await buildStep.writeAsString(
         buildStep.allowedOutputs.single,
-        buildStep.trackStage('Generate $exportPath.', () => generate(models)),
+        buildStep.trackStage('Generate $_exportPath.', () => generate(models)),
         encoding: exportEncoding,
       );
     } else if (_isDirectoryExport) {
@@ -409,9 +418,9 @@ class DartModelsGenerator extends ModelsGenerator {
         final String filename =
             parts.length >= 2 ? parts.elementAt(parts.length - 2) : parts.last;
         final String path = joinAll(<String>[
-          ...split(exportPath),
+          ...split(_exportPath),
           if (parts.length >= 2) ...parts.sublist(0, parts.length - 2),
-          '$filename.g.dart'
+          '$filename$_suffix'
         ]);
         files[path] = <ClassModel>[...?files[path], model];
       }
@@ -444,7 +453,7 @@ class DartModelsGenerator extends ModelsGenerator {
         }
       }
     } else {
-      final File file = File(exportPath);
+      final File file = File(_exportPath);
       await file.parent.create(recursive: true);
       await file.writeAsString(
         generate(models),
@@ -471,7 +480,7 @@ class DartModelsGenerator extends ModelsGenerator {
     }
     final String output = buffer.toString();
     try {
-      return formatter.format(output, uri: exportPath);
+      return formatter.format(output, uri: _exportPath);
     } on Exception catch (_) {
       return output;
     }
@@ -535,7 +544,7 @@ class DartModelsGenerator extends ModelsGenerator {
             final String path = <String>[
               for (int index = 1; index < nameParts.length; index++) '..',
               ...parts.take(parts.length - 1),
-              '${parts.last}.g.dart'
+              '${parts.last}$_suffix'
             ].join('/');
             relativeImports["import '$path';"] = nameParts.length;
           }

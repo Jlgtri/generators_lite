@@ -1007,7 +1007,10 @@ class DartI18NGenerator extends I18NGenerator {
                 (final String key) =>
                     convert ? key.toCamelCase() : key.normalize(),
               )
-              .map((final String key) => 'other.$key == $key')
+              .map(
+                (final String key) =>
+                    'other.$key == ${key == 'other' ? 'this.$key' : key}',
+              )
         ],
         separator: ' && ',
       )
