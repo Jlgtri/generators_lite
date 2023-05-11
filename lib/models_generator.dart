@@ -893,8 +893,7 @@ class DartModelsGenerator extends ModelsGenerator {
           bracketFields: <String>[
             for (final FieldModel field in model.fields)
               if (field.copy)
-                'final ${_renderType(model, field, nullable: true)} '
-                    '${field.name}'
+                '''final ${_renderType(model, field, nullable: true)} ${field.name}'''
           ],
           bodyConstructor: model.name,
           bodyFields: <String>[
@@ -1203,32 +1202,24 @@ class DartModelsGenerator extends ModelsGenerator {
           return _renderBasic(value);
         }
         convert = _renderBasic;
-        break;
 
       case FieldType.$$boolean:
         convert =
             (final Object? value) => value is bool ? value.toString() : '';
-        break;
       case FieldType.$$integer:
         convert = (final Object? value) => value is int ? value.toString() : '';
-        break;
       case FieldType.$$float:
         convert =
             (final Object? value) => value is double ? value.toString() : '';
-        break;
       case FieldType.$$string:
         convert = _renderString;
-        break;
       case FieldType.$$datetime:
         convert = _renderDateTime;
-        break;
       case FieldType.$$timedelta:
         convert =
             (final Object? value) => _renderDuration(value, renderConst: false);
-        break;
       case FieldType.$$enum:
         convert = (final Object? value) => _renderEnum(model, field, value);
-        break;
 
       case FieldType.$$object:
         final String modelKey = field.reference.split('[').first.normalize();
@@ -1246,7 +1237,6 @@ class DartModelsGenerator extends ModelsGenerator {
         } else {
           convert = _renderBasic;
         }
-        break;
     }
 
     final String $type =

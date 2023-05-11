@@ -915,8 +915,7 @@ class DartI18NGenerator extends I18NGenerator {
     if (serialize && name.isNotEmpty) {
       final Iterable<String> fields = <String>[
         if (keys.isNotEmpty)
-          'final ${className(name, keys.toList().sublist(0, keys.length - 1))} '
-              'Function() parent',
+          '''final ${className(name, keys.toList().sublist(0, keys.length - 1))} Function() parent''',
         'final Map<String, Object?> map',
       ];
       buffer.writeDoc('Convert the map with string keys to this model.');
@@ -1148,11 +1147,11 @@ class DartI18NGenerator extends I18NGenerator {
               }
               final String key = entry.key.removeFunctionType();
               final String? nestedKey =
-                  (nestedMap.keys.cast<String?>()).firstWhere(
-                (final String? nestedKey) =>
-                    nestedKey!.removeFunctionType() == key,
-                orElse: () => null,
-              );
+                  nestedMap.keys.cast<String?>().firstWhere(
+                        (final String? nestedKey) =>
+                            nestedKey!.removeFunctionType() == key,
+                        orElse: () => null,
+                      );
               return nestedKey?.getFunctionType() ??
                   getFunctionType(nestedMap[nestedKey]);
             })
@@ -1289,7 +1288,9 @@ class DartI18NGenerator extends I18NGenerator {
             ..writeln('onMatch: (final Match match) {')
             ..writeln('switch (match[2] ?? match[1]) {');
           for (final String param in functionParts.last.split(',')) {
-            final String paramKey = (param.split(RegExp(r'\s+')).last)
+            final String paramKey = param
+                .split(RegExp(r'\s+'))
+                .last
                 .replaceAll(RegExp(r'[^\w]'), '');
             buffer
               ..writeln("case '$paramKey':")

@@ -53,10 +53,13 @@ extension StringBufferUtils on StringBuffer {
     }
     if (bracketFields.isNotEmpty) {
       write(squareBrackets ? '[' : '{');
-      (bracketFields.sorted(
-        (final _, final __) => (__.startsWith('required ') ? 1 : -1)
-            .compareTo(_.startsWith('required ') ? 1 : -1),
-      )).map((final String field) => '$field,').forEach(write);
+      bracketFields
+          .sorted(
+            (final _, final __) => (__.startsWith('required ') ? 1 : -1)
+                .compareTo(_.startsWith('required ') ? 1 : -1),
+          )
+          .map((final String field) => '$field,')
+          .forEach(write);
       write(squareBrackets ? ']' : '}');
     }
     if (!$constructor.contains(' get ')) {
